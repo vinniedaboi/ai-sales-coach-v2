@@ -270,24 +270,24 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
         const STORAGE_KEY = "ai_sales_coach_chat";
 
         const customPromptInput = document.getElementById("custom-prompt");
-        customPromptInput.placeholder = DEFAULT_PROMPT_TEMPLATE;
+        customPromptInput.value = DEFAULT_PROMPT_TEMPLATE;
 
-        function updateCustomPromptPlaceholder() {
+        function updateCustomPromptValue() {
             const role = roleInput.value || "prospect";
             const product = productInput.value || "a generic software product";
             const updatedPrompt = DEFAULT_PROMPT_TEMPLATE
                 .replace(/{{role}}/g, role)
                 .replace(/{{product}}/g, product);
 
-            customPromptInput.placeholder = updatedPrompt;
+            customPromptInput.value = updatedPrompt;
         }
 
-        roleInput.addEventListener("input", updateCustomPromptPlaceholder);
-        productInput.addEventListener("input", updateCustomPromptPlaceholder);
+        roleInput.addEventListener("input", updateCustomPromptValue);
+        productInput.addEventListener("input", updateCustomPromptValue);
 
         window.onload = () => {
             loadHistory();
-            updateCustomPromptPlaceholder();
+            updateCustomPromptValue();
         };
 
 
