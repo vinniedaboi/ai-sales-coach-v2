@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Sales Coach</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f3f4f6;
+            margin: 0;
+            padding: 40px 0;
+            overflow-y: auto;
+            text-align: center;
+        }
+
+        .chat-container {
+            background: white;
+            width: 480px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            margin: 0 auto;
+            text-align: left;
+        }
+
+        h2 {
+            text-align: center;
+            color: #2563eb;
+            margin-top: 0;
+        }
+
+        label {
+            font-size: 14px;
+            margin-top: 6px;
+            display: block;
+        }
+
+        input {
+            width: 100%;
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            margin-bottom: 6px;
+        }
+
+
+
+        #messages {
+            flex: 1;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+            background: #f9fafb;
+            margin-bottom: 10px;
+            height: 300px;
+        }
+
+        .msg {
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            border-radius: 8px;
+            line-height: 1.4;
+            max-width: 80%;
+        }
+
+        .user {
+            background: #dbeafe;
+            align-self: flex-end;
+            text-align: right;
+        }
+
+        .ai {
+            background: #e5e7eb;
+            align-self: flex-start;
+        }
+
+        #input-area {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        button {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 6px;
+            background: #2563eb;
+            color: white;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #1d4ed8;
+        }
+
+        #mic-btn {
+            background: #10b981;
+        }
+
+        #mic-btn.recording {
+            background: #ef4444;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6);
+            }
+
+            70% {
+                box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+            }
+        }
+
+        .button-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            margin-top: 10px;
+        }
+
+        #scorecard-container {
+            margin-top: 10px;
+            transition: max-height 0.3s ease, opacity 0.3s ease;
+            overflow: hidden;
+            max-height: 0;
+            opacity: 0;
+        }
+
+        #scorecard {
+            background: #f9fafb;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+            font-size: 0.9em;
+            max-height: 250px;
+            overflow-y: auto;
+        }
+
+        .score-item {
+            background: #fff;
+            border-radius: 8px;
+            padding: 8px 10px;
+            margin-bottom: 8px;
+            border-left: 5px solid #2563eb;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .success {
+            color: #059669;
+            font-weight: bold;
+            text-align: center;
+            margin-top: 6px;
+        }
+
+        #toggle-scorecard {
+            background: #7c3aed;
+            width: 100%;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="chat-container">
+        <h2>💬 AI Sales Coach</h2>
+
+        <label for="model-select">🤖 AI Model:</label>
+        <select id="model-select"
+            style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #ccc; margin-bottom: 10px;">
+            <option value="gemini" selected>Gemini</option>
+            <option value="claude">Claude</option>
+            <option value="deepseek">DeepSeek</option>
+            <option value="chatgpt">ChatGPT</option>
+        </select>
+
+        <label>🎭 Role:</label>
+        <input id="role" placeholder="e.g. Marketing Manager" />
+
+        <label>💼 Product:</label>
+        <input id="product" placeholder="e.g. CRM Software" />
+
+        <label>📝 Custom Prompt:</label>
+        <textarea id="custom-prompt" rows="10"
+            style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #ccc; margin-bottom: 10px;"
+            placeholder="">
+</textarea>
+
+
+
+        <div id="messages"></div>
+
+        <div id="input-area">
+            <input id="user-input" placeholder="Type or speak..." />
+            <button id="mic-btn">🎤</button>
+            <button id="send-btn">Send</button>
+        </div>
+
+        <div class="button-row">
+            <button id="start-btn">Start Session</button>
+            <button id="clear-btn" style="background:#ef4444;">Clear History</button>
+            <button id="score-btn" style="background:#7c3aed;">Generate Scorecard</button>
+            <button id="upload-btn" style="background:#059669;">Upload Session</button>
+        </div>
+
+        <button id="toggle-scorecard">Show Scorecard</button>
+
+        <div id="scorecard-container">
+            <div id="scorecard"></div>
+        </div>
+
+        <div id="status-msg" class="success"></div>
+    </div>
+
+    <script>
+        const API_BASE = "http://127.0.0.1:8001/api";
+        const DEFAULT_PROMPT_TEMPLATE = `
+You are role-playing a **potential client** in a realistic B2B cold-call sales simulation.
+
+🎭 **Your Character**
+- Role: {{role}}, you are a client and the caller is trying to sell you a product
+- Company: a mid-sized business that could reasonably need {{product}}
+- Personality: realistic, polite but busy, a little skeptical of sales calls
+- Goal: respond naturally as if this were a real phone call — not as an AI, and not breaking character
+
+📞 **Context**
+A salesperson will call you to offer {{product}}.
+Start the call the way a real prospect would — short, natural, and a bit guarded.
+You might ask who they are, what the company does, or why they called you.
+Keep your tone conversational, human, and emotionally believable.
+
+🚫 **Avoid**
+- Mentioning that you are an AI or in a simulation.
+- Using phrases like “As an AI…” or “In this simulation...”
+- Over-explaining; prefer brief, human-sounding replies (1–3 sentences max).
+
+🎯 **Your first message**
+Start the conversation like a real person answering a call — e.g. “Hello?” or “Yes, who's this?”, and do NOT use context brackets such as [Your Name].
+`.trim();
+
+        const roleInput = document.getElementById("role");
+        const productInput = document.getElementById("product");
+        const messagesDiv = document.getElementById("messages");
+        const input = document.getElementById("user-input");
+        const sendBtn = document.getElementById("send-btn");
+        const micBtn = document.getElementById("mic-btn");
+        const startBtn = document.getElementById("start-btn");
+        const clearBtn = document.getElementById("clear-btn");
+        const scoreBtn = document.getElementById("score-btn");
+        const uploadBtn = document.getElementById("upload-btn");
+        const scorecardDiv = document.getElementById("scorecard");
+        const scorecardContainer = document.getElementById("scorecard-container");
+        const toggleScoreBtn = document.getElementById("toggle-scorecard");
+        const statusMsg = document.getElementById("status-msg");
+        const modelSelect = document.getElementById("model-select");
+
+        let scoreVisible = false;
+        let history = [];
+        let mediaRecorder, audioChunks = [];
+        const STORAGE_KEY = "ai_sales_coach_chat";
+
+        const customPromptInput = document.getElementById("custom-prompt");
+        customPromptInput.placeholder = DEFAULT_PROMPT_TEMPLATE;
+
+        function updateCustomPromptPlaceholder() {
+            const role = roleInput.value || "prospect";
+            const product = productInput.value || "a generic software product";
+            const updatedPrompt = DEFAULT_PROMPT_TEMPLATE
+                .replace(/{{role}}/g, role)
+                .replace(/{{product}}/g, product);
+
+            customPromptInput.placeholder = updatedPrompt;
+        }
+
+        roleInput.addEventListener("input", updateCustomPromptPlaceholder);
+        productInput.addEventListener("input", updateCustomPromptPlaceholder);
+
+        window.onload = () => {
+            loadHistory();
+            updateCustomPromptPlaceholder();
+        };
+
+
+        // === Local Storage ===
+        function saveHistory() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+        }
+
+        function loadHistory() {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                history = JSON.parse(saved);
+                messagesDiv.innerHTML = "";
+                history.forEach((m) => addMessage(m.role, m.content));
+            }
+        }
+
+        function clearHistory() {
+            localStorage.removeItem(STORAGE_KEY);
+            history = [];
+            messagesDiv.innerHTML = "";
+            scorecardDiv.innerHTML = "";
+            statusMsg.textContent = "✅ Chat history cleared!";
+            setTimeout(() => (statusMsg.textContent = ""), 2000);
+        }
+
+        // === Chat Handling ===
+        function addMessage(role, text) {
+            const div = document.createElement("div");
+            div.className = "msg " + (role === "user" ? "user" : "ai");
+            div.textContent = (role === "user" ? "You: " : "AI: ") + text;
+            messagesDiv.appendChild(div);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+        async function startSession() {
+            messagesDiv.innerHTML = "";
+            clearHistory();
+            scorecardDiv.textContent = "";
+            addMessage("ai", "⏳ Starting session...");
+
+            const customPrompt = customPromptInput.value.trim() || customPromptInput.placeholder;
+
+
+
+            try {
+                const res = await fetch(`${API_BASE}/session/start`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        role: roleInput.value,
+                        product: productInput.value,
+                        custom_prompt: customPrompt,
+                        model: modelSelect.value
+                    })
+                });
+                const data = await res.json();
+
+                if (data.message) {
+                    addMessage("ai", data.message);
+                    history.push({ role: "AI", content: data.message });
+                    saveHistory();
+                    speak(data.message);
+                } else {
+                    addMessage("ai", "Failed to start session 😕");
+                }
+            } catch (err) {
+                addMessage("ai", "Error: " + err.message);
+            }
+        }
+
+
+        async function sendMessage() {
+            const text = input.value.trim();
+            if (!text) return;
+            addMessage("user", text);
+            history.push({ role: "user", content: text });
+            input.value = "";
+            saveHistory();
+
+            const role = roleInput.value || "prospect";
+            const product = productInput.value || "a generic software product";
+            const customPrompt = customPromptInput.value.trim() || customPromptInput.placeholder;
+
+
+            try {
+                const { data } = await logFetch(`${API_BASE}/chat`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ history, user_input: text, role, product, custom_prompt: customPrompt, model: modelSelect.value }),
+                });
+
+                if (data?.reply) {
+                    addMessage("ai", data.reply);
+                    history.push({ role: "AI", content: data.reply });
+                    saveHistory();
+                    speak(data.reply);
+                } else {
+                    addMessage("ai", "⚠️ No reply from AI");
+                }
+            } catch (err) {
+                console.error("❌ sendMessage error:", err);
+                addMessage("ai", "Error: " + err.message);
+            }
+        }
+
+        // === Voice Features ===
+        micBtn.onclick = async () => {
+            if (mediaRecorder && mediaRecorder.state === "recording") {
+                mediaRecorder.stop();
+                micBtn.classList.remove("recording");
+                micBtn.textContent = "🎤";
+            } else {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+
+                mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
+                    const formData = new FormData();
+                    formData.append("audio", audioBlob, "speech.webm");
+
+                    const res = await fetch(`${API_BASE}/speech-to-text`, {
+                        method: "POST",
+                        body: formData,
+                    });
+                    const data = await res.json();
+                    if (data.text) input.value = data.text;
+                };
+
+                mediaRecorder.start();
+                micBtn.classList.add("recording");
+                micBtn.textContent = "🛑";
+            }
+        };
+
+        async function speak(text) {
+            try {
+                console.log("🎙️ Sending text to TTS:", text);
+
+                const res = await fetch(`${API_BASE}/text-to-speech`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ text }),
+                });
+
+                const data = await res.json();
+                console.log("🔊 TTS response:", data);
+
+                if (data.audio) {
+                    const audio = new Audio(data.audio);
+                    audio.play().catch(err => console.error("Audio playback error:", err));
+                } else {
+                    console.warn("⚠️ No audio field in TTS response", data);
+                }
+            } catch (err) {
+                console.error("❌ TTS playback failed:", err);
+            }
+        }
+
+
+        // === Helper ===
+        async function logFetch(url, options) {
+            console.log("📡", url, options);
+            const res = await fetch(url, options);
+            const data = await res.clone().json().catch(() => null);
+            console.log("📩", data);
+            return { res, data };
+        }
+
+        // === Scorecard ===
+        async function generateScorecard() {
+            addMessage("ai", "🧠 Generating scorecard...");
+            const transcript = history
+                .map(m => `${m.role === "AI" ? "Prospect" : "Sales"}: ${m.content}`)
+                .join("\n");
+
+            const { data } = await logFetch(`${API_BASE}/scorecard`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ transcript }),
+            });
+
+            renderScorecard(data);
+            showScorecard();
+        }
+
+        function renderScorecard(data) {
+            if (!data || data.error) {
+                scorecardDiv.textContent = "⚠️ Invalid scorecard data";
+                return;
+            }
+
+            const { overall_score, communication, objection_handling, closing, summary } = data;
+
+            scorecardDiv.innerHTML = `
+        <div class="score-item"><h4>Overall Score</h4><p><b>${overall_score ?? "N/A"}/10</b></p></div>
+        <div class="score-item"><h4>Communication</h4><p>${communication?.score ?? "N/A"}/10</p><p>${communication?.remarks ?? ""}</p></div>
+        <div class="score-item"><h4>Objection Handling</h4><p>${objection_handling?.score ?? "N/A"}/10</p><p>${objection_handling?.remarks ?? ""}</p></div>
+        <div class="score-item"><h4>Closing</h4><p>${closing?.score ?? "N/A"}/10</p><p>${closing?.remarks ?? ""}</p></div>
+        <div class="score-item"><h4>Summary</h4><p>${summary ?? ""}</p></div>
+      `;
+        }
+
+        function showScorecard() {
+            scorecardContainer.style.maxHeight = "400px";
+            scorecardContainer.style.opacity = "1";
+            toggleScoreBtn.textContent = "Hide Scorecard";
+            scoreVisible = true;
+        }
+
+        toggleScoreBtn.onclick = () => {
+            scoreVisible = !scoreVisible;
+            scorecardContainer.style.maxHeight = scoreVisible ? "400px" : "0";
+            scorecardContainer.style.opacity = scoreVisible ? "1" : "0";
+            toggleScoreBtn.textContent = scoreVisible ? "Hide Scorecard" : "Show Scorecard";
+        };
+
+        // === Upload ===
+        async function uploadSession() {
+            if (history.length === 0) return alert("No conversation to upload!");
+            const transcript = history.map(m => `${m.role === "AI" ? "Prospect" : "Sales"}: ${m.content}`).join("\n");
+            addMessage("ai", "📤 Uploading session...");
+            const { data } = await logFetch(`${API_BASE}/save-session`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ transcript }),
+            });
+            addMessage("ai", data.success ? "✅ Uploaded successfully!" : "⚠️ Upload failed.");
+        }
+
+        // === Bindings ===
+        sendBtn.onclick = sendMessage;
+        startBtn.onclick = startSession;
+        clearBtn.onclick = clearHistory;
+        scoreBtn.onclick = generateScorecard;
+        uploadBtn.onclick = uploadSession;
+        window.onload = loadHistory;
+    </script>
+</body>
+
+</html>
