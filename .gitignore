@@ -22,3 +22,14 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+cert.pem
+key.pem
+laravel.key
+laravel.crt
+frontend.html
+frontend.html
+package.json
+package-lock.json
+package.json
+vite.config.js
+public/.htaccess
