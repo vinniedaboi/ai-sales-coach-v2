@@ -45,54 +45,54 @@ class AIController extends Controller
     /**
      * Generic model request handler
      */
-  private function callModel(string $model, string $prompt)
-{
-    $config = $this->resolveModelConfig($model);
+    private function callModel(string $model, string $prompt)
+    {
+        $config = $this->resolveModelConfig($model);
 
-    switch ($config['type']) {
-        case 'claude':
-            $response = Http::withHeaders([
-                'x-api-key' => $config['key'],
-                'anthropic-version' => '2023-06-01',
-                'content-type' => 'application/json',
-            ])->timeout(30)->post($config['url'], [
-                'model' => 'claude-3-opus-20240229',
-                'max_tokens' => 500,
-                'messages' => [['role' => 'user', 'content' => $prompt]],
-            ]);
-            return data_get($response->json(), 'content.0.text', 'Hello?');
+        switch ($config['type']) {
+            case 'claude':
+                $response = Http::withHeaders([
+                    'x-api-key' => $config['key'],
+                    'anthropic-version' => '2023-06-01',
+                    'content-type' => 'application/json',
+                ])->timeout(30)->post($config['url'], [
+                            'model' => 'claude-3-opus-20240229',
+                            'max_tokens' => 500,
+                            'messages' => [['role' => 'user', 'content' => $prompt]],
+                        ]);
+                return data_get($response->json(), 'content.0.text', 'Hello?');
 
-        case 'deepseek':
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . $config['key'],
-                'Content-Type' => 'application/json'
-            ])->timeout(30)->post($config['url'], [
-                'model' => 'deepseek-chat',
-                'messages' => [['role' => 'user', 'content' => $prompt]],
-                'max_tokens' => 500,
-            ]);
-            return data_get($response->json(), 'choices.0.message.content', 'Hello?');
+            case 'deepseek':
+                $response = Http::withHeaders([
+                    'Authorization' => 'Bearer ' . $config['key'],
+                    'Content-Type' => 'application/json'
+                ])->timeout(30)->post($config['url'], [
+                            'model' => 'deepseek-chat',
+                            'messages' => [['role' => 'user', 'content' => $prompt]],
+                            'max_tokens' => 500,
+                        ]);
+                return data_get($response->json(), 'choices.0.message.content', 'Hello?');
 
-        case 'chatgpt':
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . $config['key'],
-                'Content-Type' => 'application/json'
-            ])->timeout(30)->post($config['url'], [
-                'model' => 'gpt-4o-mini',
-                'messages' => [['role' => 'user', 'content' => $prompt]],
-                'max_tokens' => 500,
-            ]);
-            return data_get($response->json(), 'choices.0.message.content', 'Hello?');
+            case 'chatgpt':
+                $response = Http::withHeaders([
+                    'Authorization' => 'Bearer ' . $config['key'],
+                    'Content-Type' => 'application/json'
+                ])->timeout(30)->post($config['url'], [
+                            'model' => 'gpt-4o-mini',
+                            'messages' => [['role' => 'user', 'content' => $prompt]],
+                            'max_tokens' => 500,
+                        ]);
+                return data_get($response->json(), 'choices.0.message.content', 'Hello?');
 
-        case 'gemini':
-            $response = Http::timeout(30)->post($config['url'] . '?key=' . $config['key'], [
-                'contents' => [['parts' => [['text' => $prompt]]]],
-            ]);
-            return data_get($response->json(), 'candidates.0.content.parts.0.text', 'Hello?');
+            case 'gemini':
+                $response = Http::timeout(30)->post($config['url'] . '?key=' . $config['key'], [
+                    'contents' => [['parts' => [['text' => $prompt]]]],
+                ]);
+                return data_get($response->json(), 'candidates.0.content.parts.0.text', 'Hello?');
+        }
+
+        return 'Hello?';
     }
-
-    return 'Hello?';
-}
 
     /**
      * Start a new AI sales roleplay session
@@ -214,7 +214,11 @@ PROMPT;
             $rawText = $this->callModel($model, $prompt);
             preg_match('/\{[\s\S]*\}/', $rawText, $matches);
             $jsonOutput = isset($matches[0]) ? json_decode($matches[0], true) : ['error' => 'Invalid JSON'];
-
+            Log::info('[Scorecard] Generated', [
+                'model' => $model,
+                'raw_text' => $rawText,
+                'parsed_json' => $jsonOutput
+            ]);
             return response()->json($jsonOutput);
         } catch (\Throwable $e) {
             Log::error('Scorecard generation failed: ' . $e->getMessage());
@@ -246,6 +250,10 @@ PROMPT;
                 ->post("https://speech.googleapis.com/v1/speech:recognize?key={$apiKey}", $payload);
 
             $transcript = data_get($response->json(), 'results.0.alternatives.0.transcript', '');
+            Log::info('[STT] Speech-to-text result', [
+                'file_name' => $audioFile->getClientOriginalName(),
+                'transcript' => $transcript
+            ]);
             return response()->json(['text' => $transcript]);
         } catch (\Throwable $e) {
             Log::error('🎤 [STT] Speech-to-text failed: ' . $e->getMessage());

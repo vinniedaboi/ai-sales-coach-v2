@@ -27,7 +27,6 @@ key.pem
 laravel.key
 laravel.crt
 frontend.html
-frontend.html
 package.json
 package-lock.json
 package.json
