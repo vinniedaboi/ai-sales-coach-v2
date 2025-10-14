@@ -32,6 +32,12 @@ class AIController extends Controller
                     'url' => env('OPENAI_API_URL', 'https://api.openai.com/v1/chat/completions'),
                     'type' => 'chatgpt'
                 ];
+            case 'alibaba':
+                return [
+                    'key' => env('ALIBABA_API_KEY'),
+                    'url' => env('ALIBABA_API_URL', 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions'),
+                    'type' => 'alibaba'
+                ];
             default:
                 // Default Gemini
                 return [
@@ -83,6 +89,27 @@ class AIController extends Controller
                             'max_tokens' => 500,
                         ]);
                 return data_get($response->json(), 'choices.0.message.content', 'Hello?');
+
+            case 'alibaba':
+                $response = Http::withHeaders([
+                    'Authorization' => 'Bearer ' . $config['key'],
+                    'Content-Type' => 'application/json'
+                ])->timeout(30)->post($config['url'], [
+                            'model' => 'qwen-plus',
+                            'messages' => [
+                                ['role' => 'system', 'content' => 'You are an assistant.'],
+                                ['role' => 'user', 'content' => $prompt]
+                            ],
+                            'max_tokens' => 500,
+                        ]);
+
+                Log::info('[Alibaba Qwen Raw Response]', [
+                    'status' => $response->status(),
+                    'body' => $response->json()
+                ]);
+
+                return data_get($response->json(), 'choices.0.message.content', 'Hello?');
+
 
             case 'gemini':
                 $response = Http::timeout(30)->post($config['url'] . '?key=' . $config['key'], [
@@ -241,7 +268,8 @@ PROMPT;
             $payload = [
                 "config" => [
                     "encoding" => "WEBM_OPUS",
-                    "languageCode" => "en-US"
+                    "languageCode" => "en-US",
+                    "alternativeLanguageCodes" => ["zh-CN", "en-US"],
                 ],
                 "audio" => ["content" => $audioData]
             ];
@@ -262,37 +290,50 @@ PROMPT;
     }
 
     public function textToSpeech(Request $request)
-    {
-        try {
-            $text = $request->input('text', '');
-            if (!$text) {
-                return response()->json(['error' => 'No text provided'], 400);
-            }
-
-            $apiKey = env('GOOGLE_CLOUD_API_KEY');
-            $payload = [
-                "input" => ["text" => $text],
-                "voice" => [
-                    "languageCode" => "en-US",
-                    "name" => "en-US-Wavenet-D"
-                ],
-                "audioConfig" => ["audioEncoding" => "MP3"]
-            ];
-
-            $response = Http::timeout(30)
-                ->post("https://texttospeech.googleapis.com/v1/text:synthesize?key={$apiKey}", $payload);
-
-            $audioContent = data_get($response->json(), 'audioContent');
-            if (!$audioContent) {
-                return response()->json(['error' => 'Failed to generate speech'], 500);
-            }
-
-            return response()->json([
-                'audio' => 'data:audio/mp3;base64,' . $audioContent
-            ]);
-        } catch (\Throwable $e) {
-            Log::error('🔊 [TTS] Text-to-speech failed: ' . $e->getMessage());
-            return response()->json(['error' => 'Text-to-speech failed'], 500);
+{
+    try {
+        $text = $request->input('text', '');
+        if (!$text) {
+            return response()->json(['error' => 'No text provided'], 400);
         }
+
+        $apiKey = env('GOOGLE_CLOUD_API_KEY');
+
+        // 🧠 Auto-detect language based on text content
+        // If the text contains Chinese characters, use Mandarin voice
+        if (preg_match('/\p{Han}/u', $text)) {
+            $language = 'cmn-CN';
+            $voiceName = 'cmn-CN-Wavenet-A';
+        } else {
+            $language = 'en-US';
+            $voiceName = 'en-US-Wavenet-D';
+        }
+
+        $payload = [
+            "input" => ["text" => $text],
+            "voice" => [
+                "languageCode" => $language,
+                "name" => $voiceName
+            ],
+            "audioConfig" => ["audioEncoding" => "MP3"]
+        ];
+
+        $response = Http::timeout(30)
+            ->post("https://texttospeech.googleapis.com/v1/text:synthesize?key={$apiKey}", $payload);
+
+        $audioContent = data_get($response->json(), 'audioContent');
+        if (!$audioContent) {
+            Log::error('TTS failed', ['response' => $response->json()]);
+            return response()->json(['error' => 'Failed to generate speech'], 500);
+        }
+
+        return response()->json([
+            'audio' => 'data:audio/mp3;base64,' . $audioContent
+        ]);
+    } catch (\Throwable $e) {
+        Log::error('🔊 [TTS] Text-to-speech failed: ' . $e->getMessage());
+        return response()->json(['error' => 'Text-to-speech failed'], 500);
     }
+}
+
 }
