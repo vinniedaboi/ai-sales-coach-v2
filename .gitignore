@@ -32,3 +32,4 @@ package-lock.json
 package.json
 vite.config.js
 public/.htaccess
+frontend.html
