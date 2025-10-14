@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class AIController extends Controller
 {
@@ -159,6 +160,7 @@ PROMPT;
             $message = $this->callModel($model, $prompt);
 
             Log::info("[$model] startSession response", ['message' => $message]);
+            
 
             return response()->json(['message' => $message]);
         } catch (\Throwable $e) {
@@ -202,8 +204,13 @@ Avoid sounding like an AI or giving meta comments.
 PROMPT;
 
             $reply = $this->callModel($model, $prompt);
-
-            Log::info("[$model] chat response", ['reply' => $reply]);
+            Log::info("[$model] Chat Generation", [
+            'prompt' => $prompt,
+            'raw_history' => $history,
+            'formatted_history' => $formattedHistory,
+            'user_input' => $userInput,
+            'reply' => $reply
+        ]);
 
             return response()->json(['reply' => $reply]);
         } catch (\Throwable $e) {
@@ -256,84 +263,78 @@ PROMPT;
     // ✅ STT and TTS remain unchanged
     public function speechToText(Request $request)
     {
+        $audioFile = $request->file('audio');
+        if (!$audioFile) {
+            return response()->json(['error' => 'No audio file uploaded'], 400);
+        }
+
+        $apiKey = env('OPENAI_API_KEY');
+        $url = 'https://api.openai.com/v1/audio/transcriptions';
+
         try {
-            $audioFile = $request->file('audio');
-            if (!$audioFile) {
-                return response()->json(['error' => 'No audio file uploaded'], 400);
+            // 📝 Log request info (not the whole binary)
+            Log::info('🎤 [STT REQUEST]', [
+                'url' => $url,
+                'file_name' => $audioFile->getClientOriginalName(),
+                'file_size' => $audioFile->getSize(),
+                'mime_type' => $audioFile->getMimeType(),
+            ]);
+
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $apiKey
+            ])->attach(
+                    'file',
+                    file_get_contents($audioFile->getRealPath()),
+                    $audioFile->getClientOriginalName()
+                )->asMultipart()->timeout(120)->post($url, [
+                        ['name' => 'model', 'contents' => 'whisper-1'],
+                    ]);
+
+            // 📝 Log response
+            Log::info('🎤 [STT RESPONSE]', [
+                'status' => $response->status(),
+                'body' => $response->json()
+            ]);
+
+            if ($response->failed()) {
+                Log::error('❌ [STT FAILED]', ['body' => $response->body()]);
+                return response()->json(['error' => 'STT failed'], 500);
             }
 
-            $apiKey = env('GOOGLE_CLOUD_API_KEY');
-            $audioData = base64_encode(file_get_contents($audioFile->getRealPath()));
-
-            $payload = [
-                "config" => [
-                    "encoding" => "WEBM_OPUS",
-                    "languageCode" => "en-US",
-                    "alternativeLanguageCodes" => ["zh-CN", "en-US"],
-                ],
-                "audio" => ["content" => $audioData]
-            ];
-
-            $response = Http::timeout(30)
-                ->post("https://speech.googleapis.com/v1/speech:recognize?key={$apiKey}", $payload);
-
-            $transcript = data_get($response->json(), 'results.0.alternatives.0.transcript', '');
-            Log::info('[STT] Speech-to-text result', [
-                'file_name' => $audioFile->getClientOriginalName(),
-                'transcript' => $transcript
-            ]);
+            $transcript = data_get($response->json(), 'text', '');
             return response()->json(['text' => $transcript]);
+
         } catch (\Throwable $e) {
-            Log::error('🎤 [STT] Speech-to-text failed: ' . $e->getMessage());
+            Log::error('🚨 [STT EXCEPTION]', ['message' => $e->getMessage()]);
             return response()->json(['error' => 'Speech-to-text failed'], 500);
         }
     }
 
+
+
     public function textToSpeech(Request $request)
-{
-    try {
-        $text = $request->input('text', '');
-        if (!$text) {
-            return response()->json(['error' => 'No text provided'], 400);
+    {
+        $text = $request->input('text');
+
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . env('OPENAI_API_KEY'),
+        ])->withBody(json_encode([
+                        'model' => 'gpt-4o-mini-tts',
+                        'voice' => 'alloy',
+                        'input' => $text,
+                        'format' => 'mp3',
+                    ]), 'application/json')->post('https://api.openai.com/v1/audio/speech');
+
+        if ($response->successful()) {
+            $filename = 'tts_' . time() . '.mp3';
+            Storage::disk('public')->put($filename, $response->body());
+
+            return response()->json([
+                'audio' => asset('storage/' . $filename),
+            ]);
         }
 
-        $apiKey = env('GOOGLE_CLOUD_API_KEY');
-
-        // 🧠 Auto-detect language based on text content
-        // If the text contains Chinese characters, use Mandarin voice
-        if (preg_match('/\p{Han}/u', $text)) {
-            $language = 'cmn-CN';
-            $voiceName = 'cmn-CN-Wavenet-A';
-        } else {
-            $language = 'en-US';
-            $voiceName = 'en-US-Wavenet-D';
-        }
-
-        $payload = [
-            "input" => ["text" => $text],
-            "voice" => [
-                "languageCode" => $language,
-                "name" => $voiceName
-            ],
-            "audioConfig" => ["audioEncoding" => "MP3"]
-        ];
-
-        $response = Http::timeout(30)
-            ->post("https://texttospeech.googleapis.com/v1/text:synthesize?key={$apiKey}", $payload);
-
-        $audioContent = data_get($response->json(), 'audioContent');
-        if (!$audioContent) {
-            Log::error('TTS failed', ['response' => $response->json()]);
-            return response()->json(['error' => 'Failed to generate speech'], 500);
-        }
-
-        return response()->json([
-            'audio' => 'data:audio/mp3;base64,' . $audioContent
-        ]);
-    } catch (\Throwable $e) {
-        Log::error('🔊 [TTS] Text-to-speech failed: ' . $e->getMessage());
-        return response()->json(['error' => 'Text-to-speech failed'], 500);
+        return response()->json(['error' => 'TTS failed'], 500);
     }
-}
 
 }
