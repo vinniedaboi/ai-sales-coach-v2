@@ -1,0 +1,3256 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>PropertyLab AI — Dashboard & To-Do</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <style>
+    :root {
+      --primary: #2563eb;
+      --secondary: #0ea5e9;
+      --dark: #0f172a;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --bg: #f8fafc;
+      --sidebar: 330px;
+      --navdrawer: 320px;
+      --actiondrawer: 420px;
+      --course: #ff6b35;
+    }
+
+    * {
+      box-sizing: border-box
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: var(--bg);
+      color: var(--dark);
+      display: flex;
+      min-height: 100vh
+    }
+
+    /* --- Global overlays (loading + masks) --- */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(255, 255, 255, .96);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      flex-direction: column;
+      gap: 12px
+    }
+
+    .spinner {
+      width: 56px;
+      height: 56px;
+      border: 5px solid #e2e8f0;
+      border-top-color: var(--primary);
+      border-radius: 999px;
+      animation: spin 1s linear infinite
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg)
+      }
+    }
+
+    .settings-mask,
+    .nav-mask,
+    .action-mask {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .25);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .25s ease
+    }
+
+    .settings-mask {
+      z-index: 10000
+    }
+
+    .nav-mask {
+      z-index: 9020
+    }
+
+    .action-mask {
+      z-index: 9040
+    }
+
+    /* --- Left Settings Drawer --- */
+    .sidebar {
+      position: fixed;
+      inset: 0 auto 0 0;
+      width: var(--sidebar);
+      background: #fff;
+      border-right: 1px solid var(--border);
+      box-shadow: 2px 0 12px rgba(0, 0, 0, .08);
+      padding: 18px;
+      overflow: auto;
+      transform: translateX(-100%);
+      transition: transform .25s ease;
+      z-index: 10020
+    }
+
+    body.show-settings .sidebar {
+      transform: translateX(0)
+    }
+
+    body.show-settings .settings-mask {
+      opacity: 1;
+      pointer-events: auto
+    }
+
+    .logo {
+      font-weight: 900;
+      font-size: 18px;
+      color: #0ea5e9;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 14px
+    }
+
+    .section {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 12px;
+      background: #fff
+    }
+
+    .section h4 {
+      margin: 0 0 10px;
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .06em
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin: 6px 0 4px
+    }
+
+    input,
+    select,
+    button,
+    textarea {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 14px;
+      background: #fff
+    }
+
+    textarea {
+      min-height: 120px;
+      resize: vertical
+    }
+
+    button {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      font-weight: 800;
+      cursor: pointer
+    }
+
+    button.secondary {
+      background: #eff6ff;
+      color: #1f2937;
+      border: 1px solid var(--border)
+    }
+
+    button.ghost {
+      background: #fff;
+      color: #1f2937;
+      border: 1px solid var(--border)
+    }
+
+    button.light {
+      background: #f0f9ff;
+      color: #0369a1;
+      border: 1px solid #bae6fd;
+    }
+
+    button:disabled {
+      opacity: .6;
+      cursor: not-allowed
+    }
+
+    .row {
+      display: flex;
+      gap: 8px
+    }
+
+    .row>* {
+      flex: 1
+    }
+
+    .muted {
+      color: var(--muted);
+      font-size: 12px
+    }
+
+    /* --- Left Nav Drawer (Dashboard / To Do List) --- */
+    .nav-drawer {
+      position: fixed;
+      inset: 0 auto 0 0;
+      width: var(--navdrawer);
+      background: #fff;
+      border-right: 1px solid var(--border);
+      box-shadow: 2px 0 12px rgba(0, 0, 0, .08);
+      transform: translateX(-100%);
+      transition: transform .25s ease;
+      z-index: 9030;
+      display: flex;
+      flex-direction: column
+    }
+
+    body.show-nav .nav-drawer {
+      transform: translateX(0)
+    }
+
+    body.show-nav .nav-mask {
+      opacity: 1;
+      pointer-events: auto
+    }
+
+    .nav-head {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 900;
+      display: flex;
+      align-items: center;
+      gap: 8px
+    }
+
+    .nav-body {
+      flex: 1;
+      overflow: auto
+    }
+
+    .nav-section-title {
+      padding: 8px 16px;
+      color: #94a3b8;
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: .04em
+    }
+
+    .nav-item {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      padding: 12px 16px;
+      border-bottom: 1px solid #f1f5f9;
+      cursor: pointer
+    }
+
+    .nav-item:hover {
+      background: #f8fafc
+    }
+
+    /* --- Right Action Drawer (Add Insight & Action) --- */
+    .action-drawer {
+      position: fixed;
+      inset: 0 0 0 auto;
+      width: var(--actiondrawer);
+      background: #fff;
+      border-left: 1px solid var(--border);
+      box-shadow: -2px 0 12px rgba(0, 0, 0, .08);
+      transform: translateX(100%);
+      transition: transform .25s ease;
+      z-index: 9050;
+      display: flex;
+      flex-direction: column
+    }
+
+    body.show-action .action-drawer {
+      transform: translateX(0)
+    }
+
+    body.show-action .action-mask {
+      opacity: 1;
+      pointer-events: auto
+    }
+
+    .action-head {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center
+    }
+
+    .action-title {
+      font-weight: 900
+    }
+
+    .action-body {
+      padding: 14px 16px;
+      overflow: auto
+    }
+
+    /* --- Main Topbar --- */
+    .main {
+      flex: 1;
+      min-width: 0
+    }
+
+    .top {
+      background: #fff;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, .05);
+      padding: 14px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center
+    }
+
+    .top-left {
+      display: flex;
+      gap: 8px;
+      align-items: center
+    }
+
+    /* --- Dashboard area --- */
+    .dashboard {
+      padding: 18px
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 16px
+    }
+
+    .metric {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px
+    }
+
+    .metric .icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      background: #eff6ff;
+      display: grid;
+      place-items: center;
+      color: var(--primary)
+    }
+
+    .metric .value {
+      font-size: 20px;
+      font-weight: 900;
+      line-height: 1
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 420px 1fr;
+      gap: 16px;
+      height: calc(100vh - 160px)
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      min-height: 0
+    }
+
+    .card .head {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 800
+    }
+
+    .list {
+      padding: 10px;
+      overflow: auto
+    }
+
+    /* Search + Filters */
+    .searchbar {
+      display: flex;
+      gap: 8px;
+      padding: 10px;
+      align-items: center
+    }
+
+    .searchbar input {
+      flex: 1;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 10px
+    }
+
+    .filters {
+      display: flex;
+      gap: 8px;
+      margin: 2px 10px 10px;
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      white-space: nowrap;
+      border-bottom: 1px dashed #e5e7eb;
+      padding-bottom: 6px
+    }
+
+    #filtersRow {
+      /* 1. Guarantees the necessary vertical space (Kept from last fix) */
+      height: auto !important;
+      min-height: 50px !important;
+
+      /* 2. **FIX:** Allows horizontal scrolling when content overflows */
+      overflow-x: auto !important;
+
+      /* 3. Prevents vertical scrolling (Keep it clean) */
+      overflow-y: hidden !important;
+
+      /* Optional: Ensure the filter container is set to fill its parent's width */
+      width: 100% !important;
+
+      /* Optional: Ensures the chips are on one line */
+      white-space: nowrap;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 6px 10px;
+      background: #fff;
+      cursor: pointer;
+      font-size: 13px;
+      flex: 0 0 auto
+    }
+
+    .chip input {
+      width: auto
+    }
+
+    /* Lead list items */
+    .user {
+      border: 1px solid transparent;
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 8px;
+      cursor: pointer
+    }
+
+    .user:hover {
+      background: #f8fafc
+    }
+
+    .user.active {
+      background: #eef2ff;
+      border-color: var(--primary)
+    }
+
+    .user .email {
+      color: var(--muted);
+      font-size: 12px
+    }
+
+    .pill {
+      display: inline-block;
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      margin-left: 6px
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 800;
+      margin-right: 6px
+    }
+
+    .b-webinar {
+      background: #e9d5ff;
+      color: #6b21a8
+    }
+
+    .b-course {
+      background: #fee2e2;
+      color: #b91c1c
+    }
+
+    .b-prop {
+      background: #dcfce7;
+      color: #166534
+    }
+
+    /* Right detail (tabs) */
+    .detail .header {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px
+    }
+
+    .avatar {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-weight: 900
+    }
+
+    .name {
+      font-size: 18px;
+      font-weight: 900
+    }
+
+    .tabs {
+      display: flex;
+      gap: 2px;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap
+    }
+
+    .tab {
+      padding: 10px 12px;
+      cursor: pointer;
+      font-weight: 700;
+      color: #64748b;
+      border-bottom: 2px solid transparent;
+      user-select: none
+    }
+
+    .tab.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary)
+    }
+
+    .panel {
+      padding: 14px 16px;
+      display: none;
+      overflow: auto;
+      height: 100%
+    }
+
+    .panel.active {
+      display: block
+    }
+
+    /* Panels cont. */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 12px
+    }
+
+    .kv {
+      display: flex;
+      justify-content: space-between;
+      margin: 4px 0
+    }
+
+    .insight-card {
+      background: #eff6ff;
+      border-left: 4px solid var(--primary);
+      padding: 10px;
+      border-radius: 10px;
+      margin: 10px 0
+    }
+
+    .action-card {
+      background: #fff7ed;
+      border-left: 4px solid #fb923c;
+      padding: 10px;
+      border-radius: 10px;
+      margin: 10px 0
+    }
+
+    /* Timeline + tables */
+    .timeline .rowi {
+      display: flex;
+      border-bottom: 1px solid #f1f5f9;
+      padding: 10px 0
+    }
+
+    .timeline .tdate {
+      width: 160px;
+      color: var(--muted);
+      font-size: 12px
+    }
+
+    .tlbl {
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 800;
+      margin-right: 8px
+    }
+
+    .tlbl.webinar {
+      background: #e9d8fd;
+      color: #6b46c1
+    }
+
+    .tlbl.course {
+      background: #fed7d7;
+      color: #c53030
+    }
+
+    .tlbl.property {
+      background: #c6f6d5;
+      color: #276749
+    }
+
+    .tbl {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px
+    }
+
+    .tbl th,
+    .tbl td {
+      border: 1px solid var(--border);
+      padding: 8px;
+      font-size: 13px;
+      text-align: left;
+      vertical-align: top
+    }
+
+    .tbl th {
+      background: #f8fafc
+    }
+
+    /* To-Do Cards */
+    .todo-row {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      margin-bottom: 8px;
+      background: #fff
+    }
+
+    .todo-meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap
+    }
+
+    .todo-chip {
+      display: inline-block;
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px
+    }
+
+    /* Table format for To-Do List */
+    .todo-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .todo-table th,
+    .todo-table td {
+      padding: 10px;
+      border: 1px solid var(--border);
+      text-align: left;
+    }
+
+    .todo-table th {
+      background: #f8fafc;
+      font-weight: 700;
+    }
+
+    .todo-table tr:hover {
+      background: #f8fafc;
+    }
+
+    .todo-table .action-cell {
+      display: flex;
+      gap: 6px;
+    }
+
+    /* Filter section for To-Do List */
+    .todo-filters {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .todo-filters label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin: 0;
+    }
+
+    .todo-filters select,
+    .todo-filters input {
+      width: auto;
+    }
+  </style>
+  <style>
+    #coach-messages {
+      flex: 1;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 10px;
+      background: #f9fafb;
+      margin-bottom: 10px;
+    }
+
+    .coach-msg {
+      margin-bottom: 10px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      line-height: 1.4;
+      max-width: 80%;
+    }
+
+    .coach-user {
+      background: #dbeafe;
+      align-self: flex-end;
+      text-align: right;
+      margin-left: auto;
+    }
+
+    .coach-ai {
+      background: #e5e7eb;
+      align-self: flex-start;
+    }
+
+    #coach-input-area {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    #coach-mic-btn {
+      background: #10b981;
+    }
+
+    #coach-mic-btn.recording {
+      background: #ef4444;
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6);
+      }
+
+      70% {
+        box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+      }
+
+      100% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+      }
+    }
+
+    .coach-button-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      margin-top: 10px;
+    }
+
+    #coach-scorecard-container {
+      margin-top: 10px;
+      transition: max-height 0.3s ease, opacity 0.3s ease;
+      overflow: hidden;
+      max-height: 0;
+      opacity: 0;
+    }
+
+    #coach-scorecard {
+      background: #f9fafb;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 0.9em;
+      max-height: 250px;
+      overflow-y: auto;
+    }
+
+    .coach-score-item {
+      background: #fff;
+      border-radius: 8px;
+      padding: 8px 10px;
+      margin-bottom: 8px;
+      border-left: 5px solid #2563eb;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
+    .coach-success {
+      color: #059669;
+      font-weight: bold;
+      text-align: center;
+      margin-top: 6px;
+    }
+
+    #coach-toggle-scorecard {
+      background: #7c3aed;
+      width: 100%;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="settings-mask" id="settingsMask"></div>
+  <div class="nav-mask" id="navMask"></div>
+  <div class="action-mask" id="actionMask"></div>
+
+  <aside class="sidebar" aria-hidden="true">
+    <div class="logo"><i class="fa-solid fa-sliders"></i>Settings</div>
+
+    <div class="section">
+      <h4>PropertyLab API</h4>
+      <label>Base URL</label>
+      <input id="plBase" value="https://app.propertylab.tech/api" />
+      <label>API Key</label>
+      <input id="plKey" value="c27f8b19-4f6d-493e-b8a4-2e3d9c7f6a21" />
+      <button id="btnLoad">Reload PropertyLab</button>
+    </div>
+
+    <div class="section">
+      <h4>Zoom Worker</h4>
+      <label>Worker URL</label>
+      <input id="zwUrl" value="https://zoom092625.waikit-8dd.workers.dev" />
+      <label>Host Email</label>
+      <input id="zwHost" value="waikit@propertylab.tech" />
+      <div class="row">
+        <div><label>From</label><input type="date" id="zwFrom" value="2024-01-01" /></div>
+        <div><label>To</label><input type="date" id="zwTo" /></div>
+      </div>
+      <button id="btnZoom">Reload Webinars</button>
+      <button id="btnHealth" class="secondary" style="margin-top:6px">Test Worker</button>
+      <div id="zwStatus" class="muted" style="margin-top:8px">—</div>
+    </div>
+
+    <div class="section">
+      <h4>Payments (CSV only)</h4>
+      <label>Upload CSV (email, name, description/amount or Total Spend)</label>
+      <input id="csvInput" type="file" accept=".csv,text/csv" />
+      <div class="muted" style="margin-top:6px">Paid User = CSV lifetime <b>≥ RM 2,388</b></div>
+      <button id="btnPurchasesModal" class="secondary" style="margin-top:8px"><i class="fa-solid fa-receipt"></i> View
+        All Purchases (CSV)</button>
+    </div>
+
+    <div class="section">
+      <h4>Assignee Settings</h4>
+      <label>Predefined Assignees (comma separated)</label>
+      <input id="assigneeList" value="John, Sarah, Mike, Lisa, David, Emily" />
+      <div class="muted" style="margin-top:6px">These will appear in the dropdown when adding insights</div>
+    </div>
+
+    <div class="section">
+      <h4>Cache</h4>
+      <button id="btnUseCache" class="secondary">Use cached data</button>
+      <button id="btnClearCache" class="secondary" style="margin-top:6px">Clear cache</button>
+      <div id="cacheInfo" class="muted" style="margin-top:6px">—</div>
+    </div>
+  </aside>
+
+  <aside class="nav-drawer" aria-hidden="true">
+    <div class="nav-head"><i class="fa-solid fa-bars"></i> Navigation</div>
+    <div class="nav-body">
+      <div class="nav-section-title">Main</div>
+      <div class="nav-item" id="navDashboard"><i class="fa-solid fa-gauge"></i> Dashboard</div>
+      <div class="nav-item" id="navTodo"><i class="fa-solid fa-list-check"></i> To Do List</div>
+    </div>
+  </aside>
+
+  <aside class="action-drawer" aria-hidden="true" id="actionDrawer">
+    <div class="action-head">
+      <div class="action-title" id="actionTitle">Add Insight & Action</div>
+      <button id="actionClose" class="ghost" style="width:auto"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="action-body">
+      <div class="row">
+        <div>
+          <label>Lead</label>
+          <input id="fLeadDisplay" disabled />
+        </div>
+        <div>
+          <label>Tab/Context</label>
+          <select id="fTab">
+            <option value="insight">Insight (Overall)</option>
+            <option value="webinar">Webinar</option>
+            <option value="properties">Properties</option>
+            <option value="courses">Courses</option>
+            <option value="purchases">Purchases</option>
+            <option value="booking">Property Booking</option>
+            <option value="timeline">Timeline</option>
+          </select>
+        </div>
+      </div>
+      <label>Insight</label>
+      <input id="fInsight" placeholder="e.g., Prefers KLCC projects at RM 900k–1.2m" />
+      <label>Action</label>
+      <input id="fAction" placeholder="e.g., Share 3 shortlisted units" />
+      <div class="row">
+        <div>
+          <label>Assignee</label>
+          <select id="fAssignee">
+            <option value="">Select Assignee</option>
+          </select>
+        </div>
+        <div>
+          <label>Priority</label>
+          <select id="fPriority">
+            <option>Low</option>
+            <option selected>Medium</option>
+            <option>High</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>Due Date</label>
+          <input id="fDue" type="date" />
+        </div>
+        <div>
+          <label>Status</label>
+          <select id="fStatus">
+            <option>Open</option>
+            <option>In Progress</option>
+            <option>Done</option>
+          </select>
+        </div>
+      </div>
+      <label>Potential Revenue (RM)</label>
+      <input id="fRevenue" type="number" min="0" step="0.01" />
+      <div class="row" style="margin-top:10px">
+        <button id="fSave" class="primary"><i class="fa-solid fa-floppy-disk"></i> Save Item</button>
+        <button id="fCancel" class="ghost">Cancel</button>
+      </div>
+      <div id="fHint" class="muted" style="margin-top:6px">Saved items appear in the lead tabs and Global To-Do.</div>
+    </div>
+  </aside>
+
+  <div id="overlay" class="overlay">
+    <div class="spinner"></div>
+    <div id="overlayStatus" style="color:#334155;font-weight:800">Loading PropertyLab & Zoom…</div>
+    <div class="muted">Please wait until loading finishes.</div>
+  </div>
+
+  <main class="main" aria-busy="true">
+    <div class="top">
+      <div class="top-left">
+        <button id="btnNav" class="ghost" title="Open Navigation" style="width:auto"><i
+            class="fa-solid fa-bars"></i></button>
+        <div style="font-weight:900">User Intelligence Dashboard</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span id="lastSaved" class="muted">—</span>
+        <button id="btnSettings" class="ghost"><i class="fa-solid fa-gear"></i> Settings</button>
+        <div id="toast" class="muted"></div>
+      </div>
+    </div>
+
+    <div class="dashboard" id="dashboardView">
+      <div class="metrics">
+        <div class="metric">
+          <div class="icon"><i class="fa-solid fa-video"></i></div>
+          <div>
+            <div class="value" id="mWebinarUsers">0</div>
+            <div class="label">Total Webinar Participants</div>
+          </div>
+        </div>
+        <div class="metric">
+          <div class="icon"><i class="fa-solid fa-user-check"></i></div>
+          <div>
+            <div class="value" id="mPLUsers">0</div>
+            <div class="label">Total PropertyLab Users</div>
+          </div>
+        </div>
+        <div class="metric">
+          <div class="icon"><i class="fa-solid fa-circle-dollar-to-slot"></i></div>
+          <div>
+            <div class="value" id="mPaidUsers">0</div>
+            <div class="label">Total Paid Users (≥ RM 2,388)</div>
+          </div>
+        </div>
+        <div class="metric">
+          <div class="icon"><i class="fa-solid fa-graduation-cap"></i></div>
+          <div>
+            <div class="value" id="mActiveLearners">0</div>
+            <div class="label">Total Active Course Learners</div>
+          </div>
+        </div>
+        <div class="metric">
+          <div class="icon"><i class="fa-solid fa-building"></i></div>
+          <div>
+            <div class="value" id="mPurchasers">0</div>
+            <div class="label">Total Property Purchasers (Convert)</div>
+          </div>
+        </div>
+        <div class="metric">
+          <div class="icon"><i class="fa-solid fa-hand-holding-dollar"></i></div>
+          <div>
+            <div class="value" id="mTotalCommission">RM 0</div>
+            <div class="label">Total Commission (Converted)</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="layout">
+        <div style="display:flex;flex-direction:column;gap:16px;min-height:0">
+          <div class="card" id="leadsCard">
+            <div class="head">Leads</div>
+            <div class="searchbar">
+              <input id="search" placeholder="Search name or email…" />
+              <div style="min-width:240px">
+                <select id="sortBy" title="Sort by">
+                  <option value="date" selected>Sort: Latest Activity</option>
+                  <option value="zoom">Sort: Zoom Duration</option>
+                  <option value="spend">Sort: Total Spend</option>
+                  <option value="propacts">Sort: Property Activity</option>
+                  <option value="acts">Sort: Total Activities</option>
+                  <option value="rank">Sort: Default (Rank)</option>
+                </select>
+              </div>
+            </div>
+            <div class="filters" id="filtersRow">
+              <label class="chip"><input type="checkbox" id="fltWebinar" /> Webinar</label>
+              <label class="chip"><input type="checkbox" id="fltProperty" /> Property</label>
+              <label class="chip"><input type="checkbox" id="fltPaid" /> Paid ≥ 2388</label>
+              <label class="chip"><input type="checkbox" id="fltBooked" /> Booked</label>
+              <label class="chip"><input type="checkbox" id="fltConverted" /> Converted</label>
+              <label class="chip"><input type="checkbox" id="fltCancelled" /> Cancelled</label>
+            </div>
+            <div class="list" id="userList">
+              <div class="muted">Loading…</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card detail" id="detailCard" aria-live="polite">
+          <div class="header">
+            <div class="avatar" id="uAvatar">U</div>
+            <div style="flex:1">
+              <div class="name" id="uName">Select a user</div>
+              <div id="uContact" class="muted">—</div>
+              <div id="uLast" class="muted">Last activity: —</div>
+              <div id="uMembership" class="muted">Membership (CSV lifetime): RM 0</div>
+            </div>
+            <div style="text-align:right">
+              <div style="display:flex;gap:8px;justify-content:flex-end">
+                <button class="light" id="btnAddInsightOverall" style="width:auto"><i class="fa-solid fa-plus"></i> Add
+                  Insight & Action</button>
+              </div>
+              <div style="margin-top:8px">
+                <div style="text-align:right;font-weight:900" id="uActs">0</div>
+                <div class="muted">Activities</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tabs">
+            <div class="tab active" data-tab="insight">Insight</div>
+            <div class="tab" data-tab="coach">AI Coach</div>
+            <div class="tab" data-tab="webinar">Webinar</div>
+            <div class="tab" data-tab="properties">Properties</div>
+            <div class="tab" data-tab="courses">Courses</div>
+            <div class="tab" data-tab="purchases">Purchases</div>
+            <div class="tab" data-tab="booking">Property Booking</div>
+            <div class="tab" data-tab="timeline">Timeline</div>
+            <div class="tab" data-tab="raw">Raw from PropertyLab</div>
+          </div>
+
+          <div class="panel active" id="p-insight">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+              <div style="font-weight:900">All Insights & Actions (This Lead)</div>
+              <button class="light" id="btnAddInsightFromInsightTab" style="width:auto"><i class="fa-solid fa-plus"></i>
+                Add Insight & Action</button>
+            </div>
+
+            <div class="action-card" style="margin-bottom:16px">
+              <div style="font-weight:900;margin-bottom:6px">Potential Opportunity — Revenue Estimate</div>
+              <div style="font-size:18px;font-weight:800;color:#166534" id="totalRevenueEstimate">RM 0</div>
+            </div>
+
+            <div id="insightTableContainer">
+              <table class="todo-table" id="insightTable">
+                <thead>
+                  <tr>
+                    <th>Tab</th>
+                    <th>Insight</th>
+                    <th>Action</th>
+                    <th>Assignee</th>
+                    <th>Priority</th>
+                    <th>Due Date</th>
+                    <th>Revenue (RM)</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="insightTableBody">
+                </tbody>
+              </table>
+              <div id="noInsightsMessage" class="muted" style="text-align:center;padding:20px">No insights yet. Click
+                "Add Insight & Action" to get started.</div>
+            </div>
+          </div>
+
+          <div class="panel" id="p-webinar">
+            <div class="row" style="gap:6px;margin-bottom:8px">
+              <button class="light addIA" data-tabctx="webinar" style="flex:0 0 auto"><i class="fa-solid fa-plus"></i>
+                Add Insight & Action</button>
+            </div>
+            <div class="grid" id="webStats"></div>
+            <div style="margin-top:14px;font-weight:900">Per-Webinar Participation</div>
+            <table class="tbl" id="webTable">
+              <thead>
+                <tr>
+                  <th>Webinar</th>
+                  <th>Start</th>
+                  <th>Duration (min)</th>
+                  <th>Poll Answers</th>
+                  <th>Q&A</th>
+                  <th>Reactions</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+            <div id="webDetails" style="margin-top:8px"></div>
+            <div style="margin-top:12px;font-weight:900">Attendance Window</div>
+            <div id="webAttend" style="margin-top:6px"></div>
+            <div id="webinarItems" style="margin-top:12px"></div>
+          </div>
+
+          <div class="panel" id="p-properties">
+            <div class="row" style="gap:6px;margin-bottom:8px">
+              <button class="light addIA" data-tabctx="properties" style="flex:0 0 auto"><i
+                  class="fa-solid fa-plus"></i> Add Insight & Action</button>
+            </div>
+            <div class="grid" id="propGrid"></div>
+            <div id="propertiesItems" style="margin-top:12px"></div>
+          </div>
+
+          <div class="panel" id="p-courses">
+            <div class="row" style="gap:6px;margin-bottom:8px">
+              <button class="light addIA" data-tabctx="courses" style="flex:0 0 auto"><i class="fa-solid fa-plus"></i>
+                Add Insight & Action</button>
+            </div>
+            <div class="grid" id="courseGrid"></div>
+            <div id="coursesItems" style="margin-top:12px"></div>
+          </div>
+
+          <div class="panel" id="p-purchases">
+            <div class="row" style="gap:6px;margin-bottom:8px">
+              <button class="light addIA" data-tabctx="purchases" style="flex:0 0 auto"><i class="fa-solid fa-plus"></i>
+                Add Insight & Action</button>
+            </div>
+            <div class="muted">All payment data below comes from CSV uploads.</div>
+            <table class="tbl" id="csvTable">
+              <thead>
+                <tr>
+                  <th>Purchase Date</th>
+                  <th>Email</th>
+                  <th>Name</th>
+                  <th>Description</th>
+                  <th>Amount (RM)</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+            <div id="purchasesItems" style="margin-top:12px"></div>
+          </div>
+
+          <div class="panel" id="p-booking">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div style="font-weight:900;margin-bottom:8px">Property Booking</div>
+              <button class="light addIA" data-tabctx="booking" style="width:auto"><i class="fa-solid fa-plus"></i> Add
+                Insight & Action</button>
+            </div>
+            <div class="row">
+              <div><label>Property Name</label><input id="bkName" placeholder="e.g., KLCC Residences" /></div>
+              <div><label>Unit Number</label><input id="bkUnit" placeholder="B-12-3" /></div>
+            </div>
+            <div class="row">
+              <div><label>Net Price (RM)</label><input id="bkPrice" type="number" min="0" step="0.01" /></div>
+              <div><label>Commission (RM)</label><input id="bkComm" type="number" min="0" step="0.01" /></div>
+            </div>
+            <div class="row">
+              <div><label>Status</label><select id="bkStatus">
+                  <option>Book</option>
+                  <option>Convert</option>
+                  <option>Cancel</option>
+                </select></div>
+              <div style="display:flex;align-items:flex-end"><button id="bkAdd" class="primary" style="width:auto"><i
+                    class="fa-solid fa-plus"></i> Add Booking</button></div>
+            </div>
+            <table class="tbl" id="bkTable" style="margin-top:10px">
+              <thead>
+                <tr>
+                  <th>Property</th>
+                  <th>Unit</th>
+                  <th>Net Price</th>
+                  <th>Commission</th>
+                  <th>Status</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+            <div style="margin-top:8px;font-weight:900">Converted Commission Total: <span id="bkTotal">RM 0</span></div>
+            <div id="bookingItems" style="margin-top:12px"></div>
+          </div>
+
+          <div class="panel" id="p-timeline">
+            <div class="row" style="gap:6px;margin-bottom:8px">
+              <button class="light addIA" data-tabctx="timeline" style="flex:0 0 auto"><i class="fa-solid fa-plus"></i>
+                Add Insight & Action</button>
+            </div>
+            <div class="timeline" id="timeline"></div>
+            <div id="timelineItems" style="margin-top:12px"></div>
+          </div>
+
+          <div class="panel" id="p-raw">
+            <pre id="raw"
+              style="background:#f8fafc;border:1px solid var(--border);border-radius:12px;padding:12px;white-space:pre-wrap"></pre>
+          </div>
+
+          <div class="panel" id="p-coach">
+            <div class="coach-grid"
+              style="display:grid;grid-template-columns:minmax(260px,360px) 1fr;gap:14px;height:100%">
+              <div class="coach-side"
+                style="border:1px solid var(--border);border-radius:12px;padding:12px;background:#fff;display:flex;flex-direction:column;gap:8px;height:100%; overflow-y: auto;">
+                <div style="font-weight:900">AI Sales Coach</div>
+                <label for="coach-model-select">🤖 AI Model:</label>
+                <select id="coach-model-select">
+                  <option value="gemini" selected>Gemini</option>
+                  <option value="claude">Claude</option>
+                  <option value="deepseek">DeepSeek</option>
+                  <option value="chatgpt">ChatGPT</option>
+                  <option value="alibaba">AliBaBa AI</option>
+                </select>
+
+                <label>🎭 Role (Client):</label>
+                <input id="coach-role" placeholder="e.g. Marketing Manager" disabled />
+
+                <label>💼 Product:</label>
+                <input id="coach-product" placeholder="e.g. CRM Software" />
+
+                <label>📝 Custom Prompt:</label>
+                <textarea id="coach-custom-prompt" rows="8" placeholder=""></textarea>
+
+                <div class="coach-button-row">
+                  <button id="coach-start-btn">Start Session</button>
+                  <button id="coach-clear-btn" style="background:#ef4444;">Clear History</button>
+                </div>
+                <div class="coach-button-row">
+                  <button id="coach-score-btn" style="background:#7c3aed;">Generate Scorecard</button>
+                  <button id="coach-upload-btn" style="background:#059669;">Upload Session</button>
+                </div>
+
+
+                <div id="coach-status-msg" class="coach-success"></div>
+              </div>
+
+              <div class="coach-chat"
+                style="border:1px solid var(--border);border-radius:12px;background:#fff;display:flex;flex-direction:column;height:100%;min-height:360px">
+                <div class="coach-head" style="padding:10px 12px;border-bottom:1px solid var(--border);font-weight:900">
+                  Conversation with Lead</div>
+                <div id="coach-messages" style="padding:10px;overflow:auto;flex:1">
+                  <div class="muted">Select a lead and click "Start Session".</div>
+                </div>
+                <div id="coach-input-area" style="padding:10px; border-top: 1px solid var(--border)">
+                  <input id="coach-user-input" placeholder="Type or speak..." style="margin-bottom:0" />
+                  <button id="coach-mic-btn" style="width:auto">🎤</button>
+                  <button id="coach-send-btn" style="width:auto">Send</button>
+                </div>
+              </div>
+              <div class="dashboard-card" id="ai-coach-scorecard-panel" style="display: none;">
+                <div id="coach-scorecard-content">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dashboard" id="todoView" style="display:none">
+      <div class="card">
+        <div class="head" style="display:flex;justify-content:space-between;align-items:center">
+          <span>To Do List (All Leads)</span>
+          <button id="btnBackToDashboard" class="ghost" style="width:auto"><i class="fa-solid fa-arrow-left"></i>
+            Back</button>
+        </div>
+
+        <div class="todo-filters" style="padding: 10px 16px 0;">
+          <div style="font-weight:700;margin-right:12px">Filter by:</div>
+          <label><input type="checkbox" id="todoFilterWebinar" /> Webinar</label>
+          <label><input type="checkbox" id="todoFilterProperty" /> Property</label>
+          <label><input type="checkbox" id="todoFilterPaid" /> Paid ≥ 2388</label>
+          <label><input type="checkbox" id="todoFilterBooked" /> Booked</label>
+          <label><input type="checkbox" id="todoFilterConverted" /> Converted</label>
+          <label><input type="checkbox" id="todoFilterCancelled" /> Cancelled</label>
+
+          <select id="todoFilterAssignee" style="margin-left:12px">
+            <option value="">All Assignees</option>
+          </select>
+        </div>
+
+        <div class="action-card" style="margin:10px 16px">
+          <div style="font-weight:900;margin-bottom:6px">Total Potential Opportunity — Revenue Estimate</div>
+          <div style="font-size:18px;font-weight:800;color:#166534" id="totalTodoRevenue">RM 0</div>
+        </div>
+
+        <div class="list" id="todoListFull">
+          <table class="todo-table" id="todoTableFull">
+            <thead>
+              <tr>
+                <th>Lead Name</th>
+                <th>Tags</th>
+                <th>Tab</th>
+                <th>Insight</th>
+                <th>Action</th>
+                <th>Assignee</th>
+                <th>Priority</th>
+                <th>Due Date</th>
+                <th>Revenue (RM)</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="todoTableBody">
+            </tbody>
+          </table>
+          <div id="noTodoMessage" class="muted" style="text-align:center;padding:20px">No action items yet. Click "Add
+            Insight & Action" to get started.</div>
+        </div>
+      </div>
+    </div>
+    <div id="todoList">
+    </div>
+    <div id="todoListFull">
+    </div>
+  </main>
+
+  <div id="purchModal" role="dialog" aria-modal="true" aria-labelledby="purchTitle"
+    style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:9500">
+    <div class="sheet"
+      style="background:#fff;border:1px solid var(--border);border-radius:12px;max-width:960px;margin:6vh auto;padding:0;box-shadow:0 30px 60px rgba(0,0,0,.25)">
+      <div class="hdr"
+        style="display:flex;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)">
+        <div id="purchTitle" style="font-weight:900">All Purchases — CSV</div>
+        <button id="closePurch" class="ghost" style="width:auto">Close</button>
+      </div>
+      <div class="body" style="padding:14px 16px;max-height:62vh;overflow:auto">
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Product/Description</th>
+              <th>Amount (RM)</th>
+              <th>Email</th>
+              <th>Name</th>
+              <th>Source</th>
+            </tr>
+          </thead>
+          <tbody id="purchBody"></tbody>
+        </table>
+        <div id="purchSummary" style="margin-top:8px;font-weight:900"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ======== UTILITIES ======== */
+    const $ = s => document.querySelector(s);
+    const $$ = s => Array.from(document.querySelectorAll(s));
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "\'": '&#39;' }[m]));
+    const pad2 = n => String(n).padStart(2, '0');
+    const ymd = d => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+    const fmtDate = d => d ? new Date(d).toLocaleString() : '';
+    const currency = n => 'RM ' + (Math.round((n || 0) * 100) / 100).toLocaleString();
+    function toast(msg, err = false) { const el = $('#toast'); el.textContent = msg; el.style.color = err ? '#b91c1c' : '#64748b'; setTimeout(() => { if (el.textContent === msg) el.textContent = ''; }, 3500); }
+    function overlayStatus(t) { $('#overlayStatus').textContent = t; }
+
+    /* Drawer/mask toggles */
+    function toggleSettings(show) { document.body.classList.toggle('show-settings', show === undefined ? !document.body.classList.contains('show-settings') : show); }
+    function toggleNav(show) { document.body.classList.toggle('show-nav', show === undefined ? !document.body.classList.contains('show-nav') : show); }
+    function toggleAction(show) { document.body.classList.toggle('show-action', show === undefined ? !document.body.classList.contains('show-action') : show); }
+    $('#btnSettings').addEventListener('click', () => toggleSettings(true));
+    $('#settingsMask').addEventListener('click', () => toggleSettings(false));
+    $('#btnNav').addEventListener('click', () => toggleNav(true));
+    $('#navMask').addEventListener('click', () => toggleNav(false));
+    $('#actionMask').addEventListener('click', () => toggleAction(false));
+    $('#actionClose').addEventListener('click', () => toggleAction(false));
+    $('#fCancel').addEventListener('click', () => toggleAction(false));
+
+    /* Dates */
+    (function initDates() { $('#zwTo').value = ymd(new Date()); })();
+
+    /* NAV actions */
+    $('#navDashboard').addEventListener('click', () => { toggleNav(false); $('#dashboardView').style.display = 'block'; $('#todoView').style.display = 'none'; });
+    $('#navTodo').addEventListener('click', () => { toggleNav(false); $('#dashboardView').style.display = 'none'; $('#todoView').style.display = 'block'; renderGlobalTodo(true); });
+    $('#btnBackToDashboard').addEventListener('click', () => { $('#dashboardView').style.display = 'block'; $('#todoView').style.display = 'none'; });
+
+    /* Search + Filters + Sort */
+    $('#search').addEventListener('input', () => renderUserList());
+    ['#fltWebinar', '#fltProperty', '#fltPaid', '#fltBooked', '#fltConverted', '#fltCancelled', '#sortBy']
+      .forEach(id => $(id).addEventListener('change', () => renderUserList()));
+
+    /* Tab switching */
+    $$('.tab').forEach(t => t.addEventListener('click', () => {
+      $$('.tab').forEach(x => x.classList.remove('active'));
+      t.classList.add('active');
+      const name = t.dataset.tab;
+      $$('.panel').forEach(p => p.classList.remove('active'));
+      const panel = document.getElementById(`p-${name}`);
+      if (panel) { panel.classList.add('active'); }
+      if (typeof renderPanel === 'function') { renderPanel(name); }
+    }));
+
+    /* "Add Insight & Action" entry points */
+    $('#btnAddInsightOverall').addEventListener('click', () => openActionDrawer('insight'));
+    $('#btnAddInsightFromInsightTab').addEventListener('click', () => openActionDrawer('insight'));
+    $$('.addIA').forEach(btn => btn.addEventListener('click', e => openActionDrawer(e.currentTarget.getAttribute('data-tabctx') || 'insight')));
+
+    /* Purchases modal open/close */
+    $('#btnPurchasesModal').addEventListener('click', () => openPurchasesModal());
+    $('#closePurch').addEventListener('click', () => $('#purchModal').style.display = 'none');
+    $('#purchModal').addEventListener('click', (e) => { if (e.target === e.currentTarget) $('#purchModal').style.display = 'none'; });
+
+    /* Settings action buttons */
+    async function blocking(fn, statusText) {
+      $('#overlay').style.display = 'flex'; overlayStatus(statusText || 'Working…');
+      try { await fn(); } catch (e) { toast(e.message || String(e), true); } finally { if (window.__dataReady) { $('#overlay').style.display = 'none'; } }
+    }
+    $('#btnLoad').addEventListener('click', () => blocking(loadPropertyLab, 'Refreshing PropertyLab…'));
+    $('#btnZoom').addEventListener('click', () => blocking(fetchAllWebinars, 'Loading Zoom webinars…'));
+    $('#btnHealth').addEventListener('click', () => testWorker());
+
+    /* CSV input */
+    $('#csvInput').addEventListener('change', () => importCSV());
+
+    /* Booking add */
+    $('#bkAdd').addEventListener('click', () => addBooking());
+
+    /* Cache buttons */
+    $('#btnUseCache').addEventListener('click', () => loadCacheIfMatch());
+    $('#btnClearCache').addEventListener('click', () => clearCache());
+
+    // Mock toast function for notifications
+    function toast(message, isError = false) {
+      const toastEl = $('#toast');
+      toastEl.textContent = message;
+      toastEl.style.color = isError ? '#ef4444' : '#10b981';
+      clearTimeout(window.__toastTimer);
+      window.__toastTimer = setTimeout(() => {
+        toastEl.textContent = '';
+      }, 5000);
+    }
+
+    /*
+    * 1. Logic for Populating the Assignee Dropdown
+    */
+    function updateAssigneeDropdown() {
+      const assigneeInput = $('#assigneeList');
+      const assigneeSelect = $('#fAssignee');
+
+      if (!assigneeInput || !assigneeSelect) return;
+
+      // Get and process the comma-separated list
+      const assignees = assigneeInput.value
+        .split(',')
+        .map(name => name.trim())
+        .filter(name => name.length > 0);
+
+      // Clear existing options, but save the default one if it exists
+      const defaultOption = assigneeSelect.querySelector('option[value=""]');
+      assigneeSelect.innerHTML = '';
+      if (defaultOption) {
+        assigneeSelect.appendChild(defaultOption);
+      } else {
+        const newDefault = document.createElement('option');
+        newDefault.value = '';
+        newDefault.textContent = 'Select Assignee';
+        assigneeSelect.appendChild(newDefault);
+      }
+
+      // Add new options from the settings list
+      assignees.forEach(name => {
+        const option = document.createElement('option');
+        option.value = name; // Use the name as both value and text
+        option.textContent = name;
+        assigneeSelect.appendChild(option);
+      });
+
+      toast('Assignee list updated from Settings.');
+    }
+
+    $('#assigneeList').addEventListener('change', updateAssigneeDropdown);
+    $('#assigneeList').addEventListener('keyup', updateAssigneeDropdown);
+    function performUISuccessActions(tab) {
+      // Update UI
+      if (typeof toggleAction === 'function') toggleAction(false); // Close the drawer
+
+      // **NEW: RENDER THE SELECTED LEAD PAGE**
+      if (typeof renderSelected === 'function') renderSelected();
+
+      // Re-render components
+      if (typeof renderInsightTable === 'function') renderInsightTable();
+      if (typeof renderGlobalTodo === 'function') {
+        renderGlobalTodo(false);
+        renderGlobalTodo(true);
+      }
+      if (typeof renderPanel === 'function') renderPanel(tab);
+    }
+
+    /*
+    * 2. Save Item Logic (Database Simulation + Temporary Local Display)
+    */
+    // Function must be async to handle API calls
+    async function saveItem() {
+      // 1. Pre-checks and Data Collection
+      if (!selected) return toast('Select a user first', true);
+
+      const saveButton = $('#fSave');
+      const isUpdate = !!saveButton.dataset.editingId; // Checks if the ID is set
+      const itemId = saveButton.dataset.editingId;
+
+      const email = selected.email;
+      const tab = $('#fTab').value || 'insight';
+
+      const item = {
+        insight: $('#fInsight').value || '',
+        action: $('#fAction').value || '',
+        assignee: $('#fAssignee').value || '',
+        priority: $('#fPriority').value || 'Medium',
+        due: $('#fDue').value || '',
+        revenue: parseFloat($('#fRevenue').value || '0') || 0,
+        status: $('#fStatus').value || 'Open'
+      };
+
+      if (!item.insight && !item.action) {
+        return toast('Please enter at least an Insight or an Action.', true);
+      }
+
+      // Determine METHOD, URL, and Payload Details
+      let method, url, successMessage, dataToSave;
+
+      // --- UPDATE Mode (PUT) ---
+      if (isUpdate) {
+        method = 'PUT';
+        url = `http://127.0.0.1:8000/api/store-insight-temp/${itemId}`;
+        successMessage = 'Insight updated successfully!';
+
+        dataToSave = {
+          id: itemId, // CRITICAL: Include ID in payload
+          user_email: email,
+          tab_context: tab,
+          ...item,
+          updated_at: new Date().toISOString()
+        };
+      }
+      // --- CREATE Mode (POST) ---
+      else {
+        method = 'POST';
+        url = 'http://127.0.0.1:8000/api/store-insight-temp';
+        successMessage = 'Insight saved successfully!';
+
+        dataToSave = {
+          id: 'a_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+          user_email: email,
+          tab_context: tab,
+          ...item,
+          created_at: new Date().toISOString()
+        };
+      }
+
+      // **LOGGING**
+      console.log(`--- API Call (${method}) ---`);
+      console.log('Sending data to API endpoint:', url, dataToSave);
+
+      // --- ACTIVE API SAVE/UPDATE LOGIC ---
+      try {
+        const response = await fetch(url, {
+          method: method,
+          headers: {
+            'Content-Type': 'application/json',
+            // Add your Laravel security headers here if required
+          },
+          body: JSON.stringify(dataToSave)
+        });
+
+        if (!response.ok) {
+          const err = await response.json();
+          throw new Error(err.message || `${method} failed! Status: ${response.status}`);
+        }
+
+        // 2. CRITICAL: Update local actionsByEmail object instantly for UI refresh
+        if (typeof actionsByEmail === 'object') {
+          if (isUpdate) {
+            // Find and replace the old item
+            const index = actionsByEmail[email].findIndex(x => x.id === itemId);
+            if (index !== -1) {
+              Object.assign(actionsByEmail[email][index], dataToSave);
+            }
+          } else {
+            // Add new item
+            if (!actionsByEmail[email]) actionsByEmail[email] = [];
+            actionsByEmail[email].push(dataToSave);
+          }
+        }
+
+        // 3. Reset editing state and form
+        delete saveButton.dataset.editingId; // Clear the ID from the button
+        saveButton.textContent = 'Save Item'; // Reset button text
+
+        if (typeof toggleAction === 'function') toggleAction(false);
+
+        // 4. Force UI refresh
+        performUISuccessActions(tab);
+
+        toast(successMessage);
+
+      } catch (error) {
+        console.error(`API ${method} Error:`, error);
+        toast(`Error ${isUpdate ? 'updating' : 'saving'} item: ${error.message}`, true);
+      }
+    }
+
+    /*
+    * 3. Initialization and Event Listeners
+    */
+
+    // **ASSIGN SAVE FUNCTION**
+    $('#fSave').onclick = saveItem;
+    /* ======== AI COACH INTEGRATION SCRIPT START ======== */
+    function initAICoach() {
+      const API_BASE = "http://127.0.0.1:8000/api";
+      const DEFAULT_PROMPT_TEMPLATE = `
+You are role-playing a **potential client** in a realistic B2B cold-call sales simulation.
+
+🎭 **Your Character**
+- Role: {{role}}, you are a client and the caller is trying to sell you a product
+- Company: a mid-sized business that could reasonably need {{product}}
+- Personality: realistic, polite but busy, a little skeptical of sales calls
+- Goal: respond naturally as if this were a real phone call — not as an AI, and not breaking character
+
+📞 **Context**
+A salesperson will call you to offer {{product}}.
+Start the call the way a real prospect would — short, natural, and a bit guarded.
+You might ask who they are, what the company does, or why they called you.
+Keep your tone conversational, human, and emotionally believable.
+
+🚫 **Avoid**
+- Mentioning that you are an AI or in a simulation.
+- Using phrases like “As an AI…” or “In this simulation...”
+- Over-explaining; prefer brief, human-sounding replies (1–3 sentences max).
+
+🎯 **Your first message**
+Start the conversation like a real person answering a call — e.g. “Hello?” or “Yes, who's this?”, and do NOT use context brackets such as [Your Name].
+`.trim();
+
+      const roleInput = document.getElementById("coach-role");
+      const productInput = document.getElementById("coach-product");
+      const messagesDiv = document.getElementById("coach-messages");
+      const input = document.getElementById("coach-user-input");
+      const sendBtn = document.getElementById("coach-send-btn");
+      const micBtn = document.getElementById("coach-mic-btn");
+      const startBtn = document.getElementById("coach-start-btn");
+      const clearBtn = document.getElementById("coach-clear-btn");
+      const scoreBtn = document.getElementById("coach-score-btn");
+      const uploadBtn = document.getElementById("coach-upload-btn");
+      const scorecardContainer = document.getElementById("ai-coach-scorecard-panel");
+      const scorecardDiv = document.getElementById("coach-scorecard-content");
+      const statusMsg = document.getElementById("coach-status-msg");
+      const modelSelect = document.getElementById("coach-model-select");
+      const customPromptInput = document.getElementById("coach-custom-prompt");
+
+      let scoreVisible = false;
+      let history = [];
+      let mediaRecorder, audioChunks = [];
+
+      customPromptInput.value = DEFAULT_PROMPT_TEMPLATE;
+
+      function getStorageKey() {
+        if (selected && selected.email) {
+          return `ai_sales_coach_chat_${selected.email}`;
+        }
+        return null; // No storage if no lead is selected
+      }
+
+      function updateCustomPromptValue() {
+        const role = roleInput.value || "prospect";
+        const product = productInput.value || "a generic software product";
+        const updatedPrompt = DEFAULT_PROMPT_TEMPLATE
+          .replace(/{{role}}/g, role)
+          .replace(/{{product}}/g, product);
+        customPromptInput.value = updatedPrompt;
+      }
+
+      roleInput.addEventListener("input", updateCustomPromptValue);
+      productInput.addEventListener("input", updateCustomPromptValue);
+
+      function saveHistory() {
+        const key = getStorageKey();
+        if (key) {
+          localStorage.setItem(key, JSON.stringify(history));
+        }
+      }
+
+      function loadHistory() {
+        const key = getStorageKey();
+        messagesDiv.innerHTML = ""; // Clear display first
+        if (key) {
+          const saved = localStorage.getItem(key);
+          if (saved) {
+            history = JSON.parse(saved);
+            history.forEach((m) => addMessage(m.role, m.content));
+          } else {
+            history = [];
+          }
+        } else {
+          history = [];
+          messagesDiv.innerHTML = '<div class="muted">Select a lead to begin.</div>';
+        }
+      }
+
+      function clearHistory() {
+        const key = getStorageKey();
+        if (key) localStorage.removeItem(key);
+        history = [];
+        messagesDiv.innerHTML = "";
+        scorecardDiv.innerHTML = "";
+        statusMsg.textContent = "✅ Chat history cleared!";
+        setTimeout(() => (statusMsg.textContent = ""), 2000);
+      }
+
+      function addMessage(role, text) {
+        const div = document.createElement("div");
+        div.className = "coach-msg " + (role === "user" ? "coach-user" : "coach-ai");
+        div.textContent = (role === "user" ? "You: " : "AI: ") + text;
+        messagesDiv.appendChild(div);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      }
+
+      async function startSession() {
+        if (!selected) {
+          toast("Please select a lead first.", true);
+          return;
+        }
+        messagesDiv.innerHTML = "";
+        clearHistory();
+        scorecardDiv.textContent = "";
+        addMessage("ai", "⏳ Starting session...");
+
+        const customPrompt = customPromptInput.value.trim();
+
+        try {
+          const res = await fetch(`${API_BASE}/session/start`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              role: roleInput.value,
+              product: productInput.value,
+              custom_prompt: customPrompt,
+              model: modelSelect.value
+            })
+          });
+          const data = await res.json();
+
+          if (data.message) {
+            // Clear the "starting session" message before adding the real one
+            messagesDiv.innerHTML = "";
+            addMessage("ai", data.message);
+            history.push({ role: "AI", content: data.message });
+            saveHistory();
+            speak(data.message);
+          } else {
+            addMessage("ai", "Failed to start session 😕");
+          }
+        } catch (err) {
+          addMessage("ai", "Error: " + err.message);
+        }
+      }
+
+      async function sendMessage() {
+        const text = input.value.trim();
+        if (!text) return;
+        if (!selected) {
+          toast("Please select a lead first.", true);
+          return;
+        }
+        addMessage("user", text);
+        history.push({ role: "user", content: text });
+        input.value = "";
+        saveHistory();
+
+        const role = roleInput.value;
+        const product = productInput.value;
+        const customPrompt = customPromptInput.value.trim();
+
+        try {
+          const res = await fetch(`${API_BASE}/chat`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ history, user_input: text, role, product, custom_prompt: customPrompt, model: modelSelect.value }),
+          });
+          const data = await res.json();
+          if (data?.reply) {
+            addMessage("ai", data.reply);
+            history.push({ role: "AI", content: data.reply });
+            saveHistory();
+            speak(data.reply);
+          } else {
+            addMessage("ai", "⚠️ No reply from AI");
+          }
+        } catch (err) {
+          console.error("❌ sendMessage error:", err);
+          addMessage("ai", "Error: " + err.message);
+        }
+      }
+
+      micBtn.onclick = async () => {
+        if (mediaRecorder && mediaRecorder.state === "recording") {
+          mediaRecorder.stop();
+          micBtn.classList.remove("recording");
+          micBtn.textContent = "🎤";
+        } else {
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            audioChunks = [];
+
+            mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+            mediaRecorder.onstop = async () => {
+              const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
+              const formData = new FormData();
+              formData.append("audio", audioBlob, "speech.webm");
+
+              const res = await fetch(`${API_BASE}/speech-to-text`, {
+                method: "POST",
+                body: formData,
+              });
+              const data = await res.json();
+              if (data.text) input.value = data.text;
+            };
+
+            mediaRecorder.start();
+            micBtn.classList.add("recording");
+            micBtn.textContent = "🛑";
+          } catch (err) {
+            toast("Could not access microphone.", true);
+            console.error("Mic error:", err);
+          }
+        }
+      };
+
+      async function speak(text) {
+        try {
+          const res = await fetch(`${API_BASE}/text-to-speech`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text }),
+          });
+          const data = await res.json();
+          if (data.audio) {
+            const audio = new Audio(data.audio);
+            audio.play().catch(err => console.error("Audio playback error:", err));
+          }
+        } catch (err) {
+          console.error("❌ TTS playback failed:", err);
+        }
+      }
+
+      async function generateScorecard() {
+        if (history.length === 0) {
+          toast("No conversation to score!", true);
+          return;
+        }
+        addMessage("ai", "🧠 Generating scorecard...");
+        const transcript = history
+          .map(m => `${m.role === "AI" ? "Prospect" : "Sales"}: ${m.content}`)
+          .join("\n");
+
+        if (scorecardContainer) {
+          scorecardContainer.style.display = 'none'; // Hide panel during generation
+        }
+
+        try {
+          const res = await fetch(`${API_BASE}/scorecard`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ transcript }),
+          });
+
+          // ... (rest of the API error checking remains the same)
+          if (!res.ok) {
+            throw new Error(`API Error: ${res.status} ${res.statusText}`);
+          }
+
+          const data = await res.json();
+          const scorecardData = data.parsed_json || data;
+
+          renderScorecard(scorecardData);
+
+          // --- NEW: Make the panel visible upon success ---
+          if (scorecardContainer) {
+            scorecardContainer.style.display = 'block';
+          }
+          // ------------------------------------------------
+
+        } catch (err) {
+          console.error("❌ Scorecard generation failed:", err);
+          addMessage("ai", `Error generating scorecard: ${err.message}`);
+        }
+      }
+
+      function renderScorecard(data) {
+        if (!data || data.error) {
+          scorecardDiv.innerHTML = '<div class="coach-score-item"><p>⚠️ Failed to generate a valid scorecard. Please check the console for errors.</p></div>';
+          return;
+        }
+
+        // Safely access nested properties
+        const communication_score = data.communication?.score ?? "N/A";
+        const communication_remarks = data.communication?.remarks ?? "";
+        const objection_score = data.objection_handling?.score ?? "N/A";
+        const objection_remarks = data.objection_handling?.remarks ?? "";
+        const closing_score = data.closing?.score ?? "N/A";
+        const closing_remarks = data.closing?.remarks ?? "";
+
+        scorecardDiv.innerHTML = `
+            <div class="coach-score-item"><h4>Overall Score</h4><p><b>${data.overall_score ?? "N/A"}/10</b></p></div>
+            <div class="coach-score-item"><h4>Communication</h4><p>${communication_score}/10</p><p>${communication_remarks}</p></div>
+            <div class="coach-score-item"><h4>Objection Handling</h4><p>${objection_score}/10</p><p>${objection_remarks}</p></div>
+            <div class="coach-score-item"><h4>Closing</h4><p>${closing_score}/10</p><p>${closing_remarks}</p></div>
+            <div class="coach-score-item"><h4>Summary</h4><p>${data.summary ?? "No summary provided."}</p></div>
+        `;
+      }
+
+
+      async function uploadSession() {
+        if (history.length === 0) return toast("No conversation to upload!", true);
+        const transcript = history.map(m => `${m.role === "AI" ? "Prospect" : "Sales"}: ${m.content}`).join("\n");
+        addMessage("ai", "📤 Uploading session...");
+        const res = await fetch(`${API_BASE}/save-session`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ transcript }),
+        });
+        const data = await res.json();
+        addMessage("ai", data.success ? "✅ Uploaded successfully!" : "⚠️ Upload failed.");
+      }
+
+      // Make these functions globally accessible for the dashboard script to call
+      window.updateCoachContext = (lead) => {
+        if (lead) {
+          roleInput.value = lead.name || lead.email;
+          productInput.value = "Property Investment Consultation"; // Default product
+          updateCustomPromptValue();
+          loadHistory();
+        } else {
+          roleInput.value = '';
+          productInput.value = '';
+          loadHistory(); // This will clear the chat for a null lead
+        }
+      };
+
+      // Bindings
+      sendBtn.onclick = sendMessage;
+      input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') sendMessage();
+      });
+      startBtn.onclick = startSession;
+      clearBtn.onclick = clearHistory;
+      scoreBtn.onclick = generateScorecard;
+      uploadBtn.onclick = uploadSession;
+    }
+    /* ======== AI COACH INTEGRATION SCRIPT END ======== */
+
+
+    /* ======== DATA & LOGIC ======== */
+    let profiles = {};
+    let allActivities = [];
+    let webinarByEmail = {};
+    let csvPurchasesByEmail = {};
+    let bookingsByEmail = {};
+    let actionsByEmail = {};
+    let opportunityByEmail = {};
+    let selected = null;
+    window.__dataReady = false;
+
+    /* PropertyLab Loader */
+    async function loadPropertyLab() {
+      const base = $('#plBase').value.trim(); const key = $('#plKey').value.trim();
+      allActivities = []; let page = 1, guard = 30;
+      while (guard-- > 0) {
+        const r = await fetch(`${base}/users/activities?page=${page}`, { headers: { 'Api-Key': key } });
+        if (!r.ok) throw new Error(`PropertyLab API ${r.status}`);
+        const data = await r.json();
+        const list = (data?.data?.data) || [];
+        allActivities = allActivities.concat(list);
+        if (data?.data?.next_page_url && page < (data?.data?.last_page || page)) page++; else break;
+      }
+      buildProfilesFromActivities(allActivities);
+      mergeCSVIntoProfiles();
+      $('#lastSaved').textContent = 'Loaded PropertyLab';
+      updateMetrics(); renderUserList();
+    }
+
+    function buildProfilesFromActivities(rows) {
+      profiles = {};
+      for (const a of rows) {
+        const email = (a.email || '').toLowerCase().trim(); if (!email) continue;
+        if (!profiles[email]) profiles[email] = createProfile(a);
+        updateProfile(profiles[email], a);
+      }
+      // ensure auxiliaries exist for each email
+      for (const email of Object.keys(profiles)) {
+        if (!bookingsByEmail[email]) bookingsByEmail[email] = [];
+        if (!actionsByEmail[email]) actionsByEmail[email] = [];
+        if (!opportunityByEmail[email]) opportunityByEmail[email] = { revenue: 0, owner: '', priority: 'Medium', due: '' };
+      }
+    }
+
+    function createProfile(seed) {
+      return {
+        id: seed.id, name: seed.username || seed.name || '', email: (seed.email || '').toLowerCase(), phone: seed.formatted_phone_number || '',
+        activities: [], total: 0, last: null, first: null,
+        properties: new Set(), propActivityCount: 0,
+        courses: new Map(), // name -> {lessons:Set, last:Date, progress:%}
+        csv: { total: 0, rows: [] },
+        webinar: null, hasWebinar: false, webinarHours: 0,
+        engagement: 'Low', hot: false
+      };
+    }
+
+    function updateProfile(u, a) {
+      u.activities.push(a); u.total++;
+      const dt = new Date(`${a.date} ${a.time}`); if (!u.first || dt < u.first) u.first = dt; if (!u.last || dt > u.last) u.last = dt;
+      if (a.property_name) { u.properties.add(a.property_name); u.propActivityCount += 1; }
+      if (a.course_name) {
+        if (!u.courses.has(a.course_name)) u.courses.set(a.course_name, { name: a.course_name, lessons: new Set(), last: null, progress: 0 });
+        const c = u.courses.get(a.course_name);
+        if (a.lesson_name) c.lessons.add(a.lesson_name);
+        if (dt && (!c.last || dt > c.last)) c.last = dt;
+        c.progress = Math.min(100, Math.round((c.lessons.size / 10) * 100));
+      }
+    }
+
+    function mergeCSVIntoProfiles() {
+      for (const [email, cs] of Object.entries(csvPurchasesByEmail)) {
+        if (!profiles[email]) profiles[email] = createProfile({ email, username: email });
+        if ((profiles[email].csv?.total || 0) < (cs.total || 0)) profiles[email].csv = cs; else if (!profiles[email].csv) profiles[email].csv = cs;
+        if (!bookingsByEmail[email]) bookingsByEmail[email] = [];
+        if (!actionsByEmail[email]) actionsByEmail[email] = [];
+        if (!opportunityByEmail[email]) opportunityByEmail[email] = { revenue: 0, owner: '', priority: 'Medium', due: '' };
+      }
+    }
+
+    function attachWebinar(u, wz) { u.webinar = wz; u.hasWebinar = true; u.webinarHours = Number(wz.hours || 0); }
+
+    /* Zoom Worker */
+    function baseWorker() { return $('#zwUrl').value.trim().replace(/\/$/, ''); }
+
+    async function testWorker() {
+      try { $('#zwStatus').textContent = 'Testing…'; const r = await fetch(baseWorker() + '/health'); const txt = await r.text(); $('#zwStatus').textContent = 'OK: ' + txt.slice(0, 120); }
+      catch (e) { $('#zwStatus').textContent = 'Error: ' + e.message; }
+    }
+
+    async function fetchAllWebinars() {
+      $('#zwStatus').textContent = 'Loading events…';
+      const host = $('#zwHost').value.trim(); const from = $('#zwFrom').value; const to = $('#zwTo').value;
+      const events = await (await fetch(`${baseWorker()}/api/meetings?userId=${encodeURIComponent(host)}&from=${from}&to=${to}`)).json();
+      const meetings = events.meetings || [];
+      $('#zwStatus').textContent = `Found ${meetings.length} events. Aggregating…`;
+
+      webinarByEmail = {};
+      for (const m of meetings) {
+        const [participants, polls, qa] = await Promise.all([
+          fetch(`${baseWorker()}/api/participantsSmart?id=${encodeURIComponent(m.id)}&uuid=${encodeURIComponent(m.uuid || '')}`).then(r => r.json()),
+          fetch(`${baseWorker()}/api/pollsSmart?id=${encodeURIComponent(m.id)}&uuid=${encodeURIComponent(m.uuid || '')}`).then(r => r.json()),
+          fetch(`${baseWorker()}/api/qaSmart?id=${encodeURIComponent(m.id)}&uuid=${encodeURIComponent(m.uuid || '')}`).then(r => r.json()),
+        ]);
+        compileZoomAggregate(webinarByEmail, { participants: participants.participants || [], polls: polls.data || {}, qa: qa.data || {}, chat: participants.chat || [], reactions: participants.reactions || [] }, m);
+      }
+      // attach per email
+      for (const [email, wz] of Object.entries(webinarByEmail)) {
+        if (!profiles[email]) profiles[email] = createProfile({ email, username: wz.name || email });
+        attachWebinar(profiles[email], wz);
+      }
+      updateMetrics(); renderUserList();
+      $('#zwStatus').textContent = `Loaded webinar data for ${Object.keys(webinarByEmail).length} users.`;
+    }
+
+    function compileZoomAggregate(target, raw, meeting) {
+      const norm = s => (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+      const topic = meeting?.topic || meeting?.title || `Meeting ${meeting?.id || ''}`;
+      const start = meeting?.start_time || null;
+
+      function minutesFromJL(p) {
+        const jt = Date.parse(p.join_time || ''); const lt = Date.parse(p.leave_time || '');
+        if (Number.isFinite(jt) && Number.isFinite(lt)) return Math.max(0, Math.round((lt - jt) / 60000));
+        if (typeof p.duration_min === 'number') return p.duration_min;
+        if (typeof p.duration === 'number') return p.duration > 300 ? Math.round(p.duration / 60) : p.duration;
+        return 0;
+      }
+
+      function ensure(map, name, email) {
+        const em = (email || '').toLowerCase().trim();
+        const key = em || `no-email::${norm(name)}`;
+        if (!map[key]) map[key] = { name: name || '', email: em, hours: 0, sessions: 0, reactions: 0, pollAnswers: 0, qas: 0, chat: 0, first_join: null, last_leave: null, score: 0, meetings: [] };
+        return map[key];
+      }
+
+      const perMeeting = {}, perDetails = {};
+      const toHours = m => Math.round(((m || 0) / 60) * 100) / 100;
+
+      for (const p of (raw.participants || [])) {
+        const r = ensure(target, p.name, p.user_email || p.email);
+        const mins = minutesFromJL(p);
+        r.hours += toHours(mins);
+        r.sessions += ((p.num_rejoins ?? p.rejoin_count ?? 0) + 1);
+        const j = p.join_time ? new Date(p.join_time) : null, l = p.leave_time ? new Date(p.leave_time) : null;
+        if (j && (!r.first_join || j < r.first_join)) r.first_join = j;
+        if (l && (!r.last_leave || l > r.last_leave)) r.last_leave = l;
+        const key = r.email || `no-email::${norm(r.name)}`;
+        if (!perMeeting[key]) perMeeting[key] = { minutes: 0, polls: 0, qas: 0, reactions: 0 };
+        if (!perDetails[key]) perDetails[key] = { polls: [], qas: [] };
+        perMeeting[key].minutes += mins;
+      }
+
+      // Polls
+      const pollSets = []; const polls = raw.polls;
+      if (polls) {
+        if (Array.isArray(polls.questions)) pollSets.push(...polls.questions);
+        if (Array.isArray(polls.polls)) polls.polls.forEach(pl => (pl.questions || []).forEach(q => pollSets.push(q)));
+      }
+
+      pollSets.forEach(q => {
+        (q.answers || q.answered || []).forEach(a => {
+          const r = ensure(target, a.name || a.user_name || a.email, a.email); r.pollAnswers += 1;
+          const key = r.email || `no-email::${norm(r.name)}`;
+          if (!perMeeting[key]) perMeeting[key] = { minutes: 0, polls: 0, qas: 0, reactions: 0 };
+          if (!perDetails[key]) perDetails[key] = { polls: [], qas: [] };
+          const ansTxt = a.answer_text || a.answer || (Array.isArray(a.answers) ? a.answers.join(', ') : '');
+          perMeeting[key].polls += 1; perDetails[key].polls.push({ question: q.title || q.name || 'Question', answer: ansTxt || '—' });
+        });
+      });
+
+      // Q&A
+      const qaItems = (raw.qa && (raw.qa.questions || raw.qa.qa || raw.qa.items)) || [];
+      qaItems.forEach(item => {
+        const who = item.email || item.name || item.username || (item.user && (item.user.email || item.user.name)) || '';
+        const r = ensure(target, who, item.email || '');
+        const key = r.email || `no-email::${norm(r.name)}`;
+        if (!perMeeting[key]) perMeeting[key] = { minutes: 0, polls: 0, qas: 0, reactions: 0 };
+        if (!perDetails[key]) perDetails[key] = { polls: [], qas: [] };
+        const qtext = item.question || item.title || item.text || (item.question_details && item.question_details[0]?.question) || '';
+        const atext = item.answer || (item.answers && item.answers[0]?.text) || (item.question_details && item.question_details[0]?.answer) || '';
+        perMeeting[key].qas += 1; r.qas += 1; perDetails[key].qas.push({ question: qtext || '—', answer: atext || '' });
+      });
+
+      // Chat & reactions
+      (raw.chat || []).forEach(m => { const r = ensure(target, m.name, ''); r.chat += 1; });
+      (raw.reactions || []).forEach(rr => { const r = ensure(target, rr.name, rr.email || ''); r.reactions += 1; const key = r.email || `no-email::${norm(r.name)}`; if (!perMeeting[key]) perMeeting[key] = { minutes: 0, polls: 0, qas: 0, reactions: 0 }; perMeeting[key].reactions += 1; });
+
+      // finalize & push per meeting details
+      Object.keys(target).forEach(k => {
+        const r = target[k];
+        r.hours = Math.round(r.hours * 100) / 100;
+        r.score = Math.round(((r.hours * 2) + (r.chat * 1) + (r.reactions * 0.5) + (r.pollAnswers * 1) + (r.qas * 2)) * 100) / 100;
+      });
+
+      Object.entries(perMeeting).forEach(([k, pm]) => {
+        const r = target[k]; if (!r) return;
+        const det = perDetails[k] || { polls: [], qas: [] };
+        r.meetings.push({
+          id: meeting?.id, topic, start_time: start,
+          minutes: Math.round(pm.minutes || 0), pollAnswers: pm.polls || 0, qas: pm.qas || 0, reactions: pm.reactions || 0,
+          pollDetails: det.polls, qaDetails: det.qas
+        });
+      });
+    }
+
+    /* CSV Import */
+    async function importCSV() {
+      const f = $('#csvInput').files && $('#csvInput').files[0]; if (!f) return;
+      await blocking(() => parseCSVFile(f), 'Importing CSV and matching…');
+      mergeCSVIntoProfiles(); updateMetrics(); renderUserList(); if (selected) renderSelected();
+      saveCache();
+    }
+
+    function parseCSV(text) {
+      const rows = []; let row = []; let i = 0; const s = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+      let cur = '', inQ = false;
+      while (i <= s.length) {
+        const c = s[i] || '\n';
+        if (inQ) { if (c === '\"') { if (s[i + 1] === '\"') { cur += '\"'; i++; } else { inQ = false; } } else cur += c; }
+        else { if (c === '\"') inQ = true; else if (c === ',') { row.push(cur); cur = ''; } else if (c === '\n') { row.push(cur); rows.push(row); row = []; cur = ''; } else cur += c; }
+        i++;
+      }
+      if (rows.length && rows[rows.length - 1].length === 1 && rows[rows.length - 1][0] === '') rows.pop();
+      return rows;
+    }
+
+    async function parseCSVFile(file) {
+      const txt = await file.text(); const rows = parseCSV(txt);
+      if (!rows.length) throw new Error('CSV is empty');
+      const header = rows[0].map(h => String(h || '').trim());
+
+      const idx = (names) => {
+        const set = new Set(names.map(x => x.toLowerCase()));
+        for (let i = 0; i < header.length; i++) {
+          // Case-insensitive check on trimmed headers
+          if (set.has(header[i].toLowerCase())) return i;
+        }
+        return -1;
+      };
+
+      const iEmail = idx(['email', 'e-mail', 'customer_email', 'buyer_email', 'payer_email']);
+      if (iEmail < 0) throw new Error('CSV missing Email column');
+      const iName = idx(['name', 'customer', 'customer_name', 'full_name']);
+
+      // FIX: Added 'total spend' to correctly match your Total Spend column
+      const iAmt = idx(['amount', 'amount (rm)', 'total', 'amount_rm', 'price', 'paid', 'total spend']);
+
+      const iDesc = idx(['description', 'product', 'item', 'plan', 'memo', 'notes', 'product/description']);
+
+      // FIX: Ensured 'created (utc)' is explicitly in the search list, lower-cased and trimmed.
+      const iDate = idx(['date', 'created', 'payment date', 'paid at', 'timestamp', 'created (utc)', 'created_at', 'paid_at']);
+
+      const iTotal = idx(['total spend', 'total_spend', 'lifetime spend', 'lifetime_total', 'lifetime amount']);
+      const toNum = v => { const s = String(v ?? '').replace(/[\s,]/g, '').replace(/[^\d.\-]/g, ''); const n = parseFloat(s); return Number.isFinite(n) ? n : 0; };
+      const acc = {};
+
+      for (let r = 1; r < rows.length; r++) {
+        const cols = rows[r];
+        const email = (cols[iEmail] ?? '').toString().trim().toLowerCase(); if (!email) continue;
+        const name = iName >= 0 ? String(cols[iName] ?? '').trim() : '';
+        const desc = iDesc >= 0 ? String(cols[iDesc] ?? '').trim() : '';
+        // FIX: Date is captured for every row
+        const date = iDate >= 0 ? String(cols[iDate] ?? '').trim() : '';
+        const amt = iAmt >= 0 ? toNum(cols[iAmt]) : 0;
+        const total = iTotal >= 0 ? toNum(cols[iTotal]) : 0;
+
+        // FIX: Initialized lastDate to track the most recent date for this customer.
+        if (!acc[email]) acc[email] = { name, rows: [], perTxn: 0, lifetime: 0, lastDate: null };
+
+        if (date) {
+          // Update lastDate if the current date is chronologically greater (more recent)
+          if (!acc[email].lastDate || date.localeCompare(acc[email].lastDate) > 0) {
+            acc[email].lastDate = date;
+          }
+        }
+
+        // The transaction amount check (amt > 0) should now correctly fire for your Total Spend column
+        if (amt > 0) {
+          // Use the captured date for the individual transaction
+          acc[email].rows.push({ name, description: desc || 'CSV Purchase', amount: amt, date: date || null });
+          acc[email].perTxn += amt;
+        }
+        if (total > 0) { acc[email].lifetime = Math.max(acc[email].lifetime, total); }
+      }
+
+      csvPurchasesByEmail = {};
+      for (const [email, v] of Object.entries(acc)) {
+        const lifetime = v.lifetime > 0 ? v.lifetime : v.perTxn;
+        // FIX: Use the tracked lastDate for the summary row if no transaction rows were found.
+        const finalRows = v.rows.length ? v.rows : [{ name: v.name, description: 'CSV Total Spend', amount: lifetime, date: v.lastDate || null }];
+        csvPurchasesByEmail[email] = { total: lifetime, rows: finalRows };
+      }
+    }
+
+    function openPurchasesModal() {
+      let rows = [];
+      for (const [email, cs] of Object.entries(csvPurchasesByEmail)) {
+        (cs.rows || []).forEach(r => rows.push({ date: r.date || null, desc: r.description || 'CSV Purchase', amt: r.amount || 0, email, name: profiles[email]?.name || '', source: 'CSV' }));
+      }
+
+      // FIX 1: Sort by raw string using localeCompare.
+      // Since the format is YYYY-MM-DD HH:MM, string comparison is a reliable chronological sort.
+      // The swap (b.date.localeCompare(a.date)) ensures descending order (latest first).
+      rows.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+      $('#purchBody').innerHTML = rows.map(r => `
+    <tr>
+        <td>${r.date || '<span class="muted">—</span>'}</td>
+        <td>${esc(r.desc)}</td>
+        <td>${(Math.round(r.amt * 100) / 100).toLocaleString()}</td>
+        <td>${esc(r.email)}</td>
+        <td>${esc(r.name || '')}</td>
+        <td>${r.source}</td>
+    </tr>
+  `).join('') || `<tr><td colspan="6" class="muted">No purchases.</td></tr>`;
+
+      const total = rows.reduce((s, x) => s + (x.amt || 0), 0);
+      $('#purchSummary').textContent = `CSV total (all rows): ${currency(total)}`;
+      $('#purchModal').style.display = 'block';
+    }
+
+    /* RENDER: METRICS, LIST, DETAIL */
+    function countPaidUsers() { return Object.values(profiles).filter(u => (u.csv?.total || 0) >= 2388).length; }
+
+    function sumConvertedCommission() {
+      let total = 0; for (const list of Object.values(bookingsByEmail)) { (list || []).forEach(b => { if ((b.status || '').toLowerCase() === 'convert') total += Number(b.commission || 0); }); }
+      return total;
+    }
+
+    function countPurchasers() {
+      let c = 0; for (const list of Object.values(bookingsByEmail)) { if ((list || []).some(b => (b.status || '').toLowerCase() === 'convert')) c++; }
+      return c;
+    }
+
+    function updateMetrics() {
+      $('#mWebinarUsers').textContent = Object.keys(webinarByEmail).length;
+      $('#mPLUsers').textContent = Object.keys(profiles).length;
+      $('#mPaidUsers').textContent = countPaidUsers();
+      $('#mActiveLearners').textContent = Object.values(profiles).filter(u => u.courses.size > 0).length;
+      $('#mPurchasers').textContent = countPurchasers();
+      $('#mTotalCommission').textContent = currency(sumConvertedCommission());
+    }
+
+    function userHasBooking(u, status) {
+      const list = bookingsByEmail[u.email] || [];
+      if (status === 'book') return list.some(b => (b.status || '').toLowerCase() === 'book');
+      if (status === 'convert') return list.some(b => (b.status || '').toLowerCase() === 'convert');
+      if (status === 'cancel') return list.some(b => (b.status || '').toLowerCase() === 'cancel');
+      return false;
+    }
+
+    function userPassesFilters(u) {
+      const q = $('#search').value.trim().toLowerCase();
+      const fWeb = $('#fltWebinar').checked, fProp = $('#fltProperty').checked, fPaid = $('#fltPaid').checked;
+      const fBooked = $('#fltBooked').checked, fConverted = $('#fltConverted').checked, fCancelled = $('#fltCancelled').checked;
+      if (q && !((u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q))) return false;
+      if (fWeb && !u.hasWebinar) return false;
+      if (fProp && u.properties.size === 0) return false;
+      if (fPaid && !((u.csv?.total || 0) >= 2388)) return false;
+      if (fBooked && !userHasBooking(u, 'book')) return false;
+      if (fConverted && !userHasBooking(u, 'convert')) return false;
+      if (fCancelled && !userHasBooking(u, 'cancel')) return false;
+      return true;
+    }
+
+    function ts(x) { return x ? (x instanceof Date ? x.getTime() : new Date(x).getTime()) : 0; }
+
+    function renderUserList() {
+      // include CSV-only emails
+      for (const email of Object.keys(csvPurchasesByEmail)) { if (!profiles[email]) profiles[email] = createProfile({ email, username: email }); if (!profiles[email].csv) profiles[email].csv = csvPurchasesByEmail[email]; }
+      const list = Object.values(profiles).filter(userPassesFilters);
+      const sortKey = $('#sortBy').value || 'date';
+      list.sort((a, b) => {
+        if (sortKey === 'date') return ts(b.last) - ts(a.last);                 // latest first
+        if (sortKey === 'zoom') return (b.webinarHours || 0) - (a.webinarHours || 0); // high -> low
+        if (sortKey === 'spend') return (b.csv?.total || 0) - (a.csv?.total || 0);
+        if (sortKey === 'propacts') return (b.propActivityCount || 0) - (a.propActivityCount || 0);
+        if (sortKey === 'acts') return (b.total || 0) - (a.total || 0);
+        // default: prioritize paid >=2388, then total activities
+        const paidB = ((b.csv?.total || 0) >= 2388), paidA = ((a.csv?.total || 0) >= 2388);
+        if (paidB !== paidA) return paidB ? 1 : -1;
+        return (b.total || 0) - (a.total || 0);
+      });
+
+      $('#userList').innerHTML = list.map(u => `
+    <div class="user ${selected && selected.email === u.email ? 'active' : ''}" data-email="${esc(u.email)}">
+      <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
+        <div>
+          <div style="font-weight:900">${esc(u.name || u.email)}</div>
+          <div class="email">${esc(u.email || '')}</div>
+          <div class="muted" style="margin-top:4px">Last activity: ${u.last ? fmtDate(u.last) : '—'}</div>
+          <div style="margin-top:6px">
+            ${u.hasWebinar ? '<span class="badge b-webinar">Webinar</span>' : ''}
+            ${u.properties.size ? '<span class="badge b-prop">Property</span>' : ''}
+            ${(u.csv?.total || 0) >= 2388 ? '<span class="badge" style="background:#fff7ed;color:#9a3412">Paid ≥ 2388</span>' : ''}
+            ${userHasBooking(u, 'book') ? '<span class="badge" style="background:#e0f2fe;color:#075985">Booked</span>' : ''}
+            ${userHasBooking(u, 'convert') ? '<span class="badge" style="background:#dcfce7;color:#166534">Converted</span>' : ''}
+            ${userHasBooking(u, 'cancel') ? '<span class="badge" style="background:#fee2e2;color:#991b1b">Cancelled</span>' : ''}
+          </div>
+        </div>
+        <div style="text-align:right">
+          <div class="pill">Zoom: ${(u.webinarHours || 0).toFixed(2)}h</div>
+          <div class="pill">Spend: ${currency(u.csv?.total || 0)}</div>
+        </div>
+      </div>
+    </div>
+  `).join('') || '<div class="muted">No users match filters/search.</div>';
+
+      $$('#userList .user').forEach(el => el.onclick = () => {
+        const email = el.dataset.email;
+        selected = profiles[email];
+        renderSelected();
+        const filtersRow = $('#filtersRow');
+        if (filtersRow) {
+          filtersRow.style.display = 'flex';
+          // If individual filter chips are also being hidden, unhide them too:
+          $$('#filtersRow .chip').forEach(el => el.style.display = 'inline-flex');
+        }
+        $$('#userList .user').forEach(x => x.classList.remove('active'));
+        el.classList.add('active');
+      });
+    }
+
+    function renderSelected() {
+      if (!selected) return;
+      $('#uAvatar').textContent = (selected.name || selected.email || 'U').charAt(0).toUpperCase();
+      $('#uName').textContent = selected.name || selected.email || 'Unknown';
+      $('#uContact').textContent = `${selected.email}${selected.phone ? ' • ' + selected.phone : ''}`;
+      $('#uActs').textContent = selected.total || 0;
+      $('#uMembership').textContent = `Membership (CSV lifetime): ${currency((selected.csv?.total) || 0)}`;
+      $('#uLast').textContent = `Last activity: ${selected.last ? fmtDate(selected.last) : '—'}`;
+      $('#raw').textContent = JSON.stringify({ propertylab_activities: selected.activities }, null, 2);
+
+      // Update AI Coach context when a new lead is selected
+      if (window.updateCoachContext) {
+        window.updateCoachContext(selected);
+      }
+
+      // default render active tab
+      const active = document.querySelector('.tab.active')?.dataset.tab || 'insight';
+      renderPanel(active);
+      renderBookings();
+      renderInsightTable();
+    }
+
+    /* PANELS */
+    function renderPanel(which) {
+      if (which === 'insight') {
+        renderInsightTable();
+        return;
+      }
+      if (which === 'webinar') {
+        const w = selected.webinar; const stats = $('#webStats'), tbody = $('#webTable tbody'), details = $('#webDetails');
+        if (!w) { stats.innerHTML = '<div class="muted">No webinar activity.</div>'; tbody.innerHTML = ''; details.innerHTML = ''; $('#webAttend').innerHTML = ''; }
+        else {
+          stats.innerHTML = `
+        <div style="border:1px solid var(--border);border-radius:10px;padding:12px">
+          <div class="kv"><span>Hours</span><b>${(w.hours || 0).toFixed(2)}h</b></div>
+          <div class="kv"><span>Sessions</span><b>${w.sessions || 0}</b></div>
+          <div class="kv"><span>Engagement Score</span><b>${(w.score || 0).toFixed(2)}</b></div>
+          <div class="kv"><span>Poll Answers</span><b>${w.pollAnswers || 0}</b></div>
+          <div class="kv"><span>Q&A</span><b>${w.qas || 0}</b></div>
+          <div class="kv"><span>Reactions</span><b>${w.reactions || 0}</b></div>
+        </div>`;
+          $('#webAttend').innerHTML = `
+        <div class="kv"><span>First Join</span><span>${w.first_join ? fmtDate(w.first_join) : '—'}</span></div>
+        <div class="kv"><span>Last Leave</span><span>${w.last_leave ? fmtDate(w.last_leave) : '—'}</span></div>`;
+          const rows = (w.meetings || []).sort((a, b) => new Date(b.start_time) - new Date(a.start_time)).map((m, i) => `
+        <tr>
+          <td><span class="expand" data-idx="${i}">${esc(m.topic || 'Webinar')}</span></td>
+          <td>${m.start_time ? fmtDate(m.start_time) : '—'}</td>
+          <td>${m.minutes || 0}</td>
+          <td>${m.pollAnswers || 0}</td>
+          <td>${m.qas || 0}</td>
+          <td>${m.reactions || 0}</td>
+        </tr>`).join('');
+          tbody.innerHTML = rows || `<tr><td colspan="6" class="muted">No per-webinar data.</td></tr>`;
+          $('#webDetails').innerHTML = '';
+          $$('#webTable .expand').forEach(a => a.onclick = () => {
+            const idx = +a.dataset.idx; const m = w.meetings[idx];
+            $('#webDetails').innerHTML = `
+          <div style="margin-top:8px;border:1px solid var(--border);border-radius:8px;padding:10px">
+            <div style="font-weight:800;margin-bottom:6px">${esc(m.topic || 'Webinar')} — Details</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <div>
+                <div style="font-weight:700">Poll Answers (${(m.pollDetails || []).length})</div>
+                ${(m.pollDetails || []).map(p => `<div class="kv"><span>${esc(p.question)}</span><span><b>${esc(p.answer)}</b></span></div>`).join('') || '<div class="muted">None</div>'}
+              </div>
+              <div>
+                <div style="font-weight:700">Q&A (${(m.qaDetails || []).length})</div>
+                ${(m.qaDetails || []).map(q => `<div style="margin:4px 0"><b>Q:</b> ${esc(q.question)}${q.answer ? `<br/><b>A:</b> ${esc(q.answer)}` : ''}</div>`).join('') || '<div class="muted">None</div>'}
+              </div>
+            </div>
+          </div>`;
+          });
+        }
+        renderItemsList('#webinarItems', selected.email, 'webinar');
+      }
+      if (which === 'properties') {
+        const grid = $('#propGrid'); const uniq = new Set(); let html = '';
+        selected.activities.forEach(a => {
+          if (a.property_name && !uniq.has(a.property_name)) {
+            uniq.add(a.property_name);
+            html += `<div style="border:1px solid var(--border);border-radius:10px;padding:10px">
+          <div style="font-weight:800">${esc(a.property_name)}</div>
+          <div class="kv"><span>Type</span><span>${esc(a.unit_type || '—')}</span></div>
+          <div class="kv"><span>Price</span><span>${a.net_price ? 'RM ' + Number(a.net_price).toLocaleString() : '—'}</span></div>
+          <div class="kv"><span>Source</span><span>${esc(a.project_source || '—')}</span></div>
+        </div>`;
+          }
+        });
+        grid.innerHTML = html || '<div class="muted">No properties.</div>';
+        renderItemsList('#propertiesItems', selected.email, 'properties');
+      }
+      if (which === 'courses') {
+        const grid = $('#courseGrid'); let html = '';
+        selected.courses.forEach(c => {
+          html += `<div style="border:1px solid var(--border);border-radius:10px;padding:10px">
+        <div style="font-weight:800">${esc(c.name)}</div>
+        <div class="kv"><span>Lessons</span><span>${c.lessons.size}</span></div>
+        <div class="kv"><span>Last Access</span><span>${c.last ? fmtDate(c.last) : '—'}</span></div>
+        <div style="margin-top:8px;height:8px;background:#e2e8f0;border-radius:6px"><div style="height:8px;width:${c.progress}%;background:var(--course);border-radius:6px"></div></div>
+        <div style="text-align:right;font-size:12px;color:#475569">${c.progress}%</div>
+      </div>`;
+        });
+        grid.innerHTML = html || '<div class="muted">No courses.</div>';
+        renderItemsList('#coursesItems', selected.email, 'courses');
+      }
+      if (which === 'purchases') {
+        const body = $('#csvTable tbody'); const csv = profiles[selected.email]?.csv || { rows: [], total: 0 };
+        const csvRows = (csv.rows || []).map(r => `
+      <tr><td>${r.date ? new Date(r.date).toLocaleString() : '<span class="muted">—</span>'}</td><td>${esc(selected.email)}</td><td>${esc(r.name || '')}</td><td>${esc(r.description || 'CSV Purchase')}</td><td>${(r.amount || 0).toLocaleString()}</td></tr>`).join('');
+        body.innerHTML = csvRows || `<tr><td colspan="5" class="muted">No CSV rows for this lead.</td></tr>`;
+        renderItemsList('#purchasesItems', selected.email, 'purchases');
+      }
+      if (which === 'booking') { renderBookings(); renderItemsList('#bookingItems', selected.email, 'booking'); }
+      if (which === 'timeline') {
+        const list = [];
+        selected.activities.forEach(a => {
+          list.push({
+            ts: new Date(`${a.date} ${a.time}`), type: a.course_name ? 'course' : (a.property_name ? 'property' : 'general'),
+            label: a.course_name ? `${a.course_name}${a.lesson_name ? ' - ' + a.lesson_name : ''}` : (a.property_name || (a.url || 'Activity'))
+          });
+        });
+        if (selected.webinar) {
+          const w = selected.webinar;
+          if (w.first_join) list.push({ ts: new Date(w.first_join), type: 'webinar', label: 'Webinar participation started' });
+          (w.meetings || []).forEach(m => {
+            list.push({
+              ts: new Date(m.start_time || w.first_join || Date.now()), type: 'webinar',
+              label: `${m.topic || 'Webinar'} • ${m.minutes || 0} min • Poll:${m.pollAnswers || 0} • Q&A:${m.qas || 0}`
+            });
+          });
+        }
+        (profiles[selected.email]?.csv?.rows || []).forEach(r => {
+          list.push({ ts: r.date ? new Date(r.date) : new Date(), type: 'property', label: `CSV Purchase: ${r.description || 'Purchase'} • RM ${(r.amount || 0).toLocaleString()}` });
+        });
+        list.sort((a, b) => b.ts - a.ts);
+        $('#timeline').innerHTML = list.map(it => `
+      <div class="rowi">
+        <div class="tdate">${fmtDate(it.ts)}</div>
+        <div><span class="tlbl ${it.type}">${it.type.charAt(0).toUpperCase() + it.type.slice(1)}</span> ${esc(it.label)}</div>
+      </div>`).join('') || '<div class="muted">No timeline.</div>';
+        renderItemsList('#timelineItems', selected.email, 'timeline');
+      }
+    }
+
+    /* INSIGHTS / ACTIONS (Right Drawer) */
+    function openActionDrawer(tabCtx = 'insight') {
+      if (!selected) { toast('Select a user first'); return; }
+      $('#fLeadDisplay').value = `${selected.name || selected.email} (${selected.email})`;
+      $('#fTab').value = tabCtx;
+      $('#fInsight').value = ''; $('#fAction').value = ''; $('#fAssignee').value = '';
+      $('#fPriority').value = 'Medium'; $('#fDue').value = ''; $('#fStatus').value = 'Open'; $('#fRevenue').value = '';
+      $('#actionTitle').textContent = `Add Insight & Action — ${tabCtx.charAt(0).toUpperCase() + tabCtx.slice(1)}`;
+      toggleAction(true);
+    }
+
+    // $('#fSave').onclick = () => {
+    //   if (!selected) return toast('Select a user first');
+    //   const email = selected.email, tab = $('#fTab').value || 'insight';
+    //   const item = {
+    //     insight: $('#fInsight').value || '', action: $('#fAction').value || '',
+    //     assignee: $('#fAssignee').value || '', priority: $('#fPriority').value || 'Medium',
+    //     due: $('#fDue').value || '', revenue: parseFloat($('#fRevenue').value || '0') || 0, status: $('#fStatus').value || 'Open'
+    //   };
+    //   if (!actionsByEmail[email]) actionsByEmail[email] = [];
+    //   const id = 'a_' + Math.random().toString(36).slice(2, 9);
+    //   actionsByEmail[email].push({ id, tab, createdAt: new Date().toISOString(), ...item });
+    //   toggleAction(false); saveCache();
+    //   renderInsightTable(); renderGlobalTodo(false); renderGlobalTodo(true); renderPanel(tab);
+    //   toast('Insight & Action saved');
+    // };
+
+    function renderInsightTable() {
+      if (!selected) return;
+      const items = (actionsByEmail[selected.email] || []);
+
+      // Calculate total revenue
+      const totalRevenue = items.reduce((sum, item) => sum + (item.revenue || 0), 0);
+      $('#totalRevenueEstimate').textContent = currency(totalRevenue);
+
+      if (!items.length) {
+        $('#insightTable').style.display = 'none';
+        $('#noInsightsMessage').style.display = 'block';
+        return;
+      }
+
+      $('#insightTable').style.display = 'table';
+      $('#noInsightsMessage').style.display = 'none';
+
+      const tbody = $('#insightTableBody');
+      tbody.innerHTML = items.sort((a, b) => (a.due ? new Date(a.due) - 0 : 0) - (b.due ? new Date(b.due) - 0 : 0)).map(it => `
+    <tr data-id="${esc(it.id)}">
+      <td>${esc(it.tab)}</td>
+      <td>${esc(it.insight || '-')}</td>
+      <td>${esc(it.action || '-')}</td>
+      <td>${esc(it.assignee || '-')}</td>
+      <td>${esc(it.priority || 'Medium')}</td>
+      <td>${it.due ? esc(it.due) : '-'}</td>
+      <td>${it.revenue ? Number(it.revenue).toLocaleString() : '-'}</td>
+      <td>
+        <select class="statusSel">
+          <option ${it.status === 'Open' ? 'selected' : ''}>Open</option>
+          <option ${it.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
+          <option ${it.status === 'Done' ? 'selected' : ''}>Done</option>
+        </select>
+      </td>
+      <td class="action-cell">
+        <button class="ghost editInsight" style="width:auto"><i class="fa-solid fa-edit"></i></button>
+        <button class="ghost delInsight" style="width:auto"><i class="fa-solid fa-trash"></i></button>
+      </td>
+    </tr>
+  `).join('');
+
+      // Add event listeners
+      tbody.querySelectorAll('.statusSel').forEach(sel => {
+        sel.onchange = (e) => {
+          const id = e.target.closest('tr').dataset.id;
+          const arr = actionsByEmail[selected.email]; const it = arr.find(x => x.id === id);
+          if (it) {
+            it.status = e.target.value;
+            saveCache();
+            renderGlobalTodo(false);
+            renderGlobalTodo(true);
+          }
+        };
+      });
+
+      tbody.querySelectorAll('.editInsight').forEach(btn => {
+        btn.onclick = (e) => {
+          if (!selected || !selected.email) {
+            return toast('Please select a lead first.', true);
+          }
+
+          // Use e.currentTarget for reliability
+          const id = e.currentTarget.closest('tr').dataset.id;
+          const email = selected.email;
+
+          // Get the item from the local store (which is sync'd with the API)
+          const arr = actionsByEmail[email];
+          const it = arr ? arr.find(x => x.id === id) : null;
+
+          if (it) {
+            // This function populates the form and sets the item ID
+            openEditActionDrawer(it);
+          } else {
+            toast('Error: Item data not found locally.', true);
+          }
+        };
+      });
+
+      tbody.querySelectorAll('.delInsight').forEach(btn => {
+        btn.onclick = async (e) => { // NOTE: Made the function ASYNC
+          // 1. Get the ID from the table row (tr)
+          const row = e.currentTarget.closest('tr');
+          const id = e.target.closest('tr').dataset.id;
+          const email = selected?.email;
+
+          if (!confirm("Are you sure you want to delete this Insight & Action? This action is permanent.")) {
+            return; // Exit if user cancels
+          }
+
+          try {
+            // 2. CALL THE API DELETION FUNCTION
+            // We reuse the logic from the global deleteItem, but execute it here.
+            const apiUrl = `http://localhost:8000/api/store-insight-temp/${id}`;
+
+            const response = await fetch(apiUrl, {
+              method: 'DELETE',
+              headers: {
+                'Content-Type': 'application/json',
+                // IMPORTANT: Include your Laravel security headers here (e.g., CSRF Token)
+                // Example: 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content 
+              }
+            });
+
+            if (!response.ok) {
+              const err = await response.json();
+              throw new Error(err.message || `Server error during deletion. Status: ${response.status}`);
+            }
+
+            // 3. SUCCESS: Update the UI by re-rendering based on fresh data
+            // NOTE: The server-side deletion is done. Now we re-render everything
+            // (The global actionsByEmail temporary cache is removed/updated 
+            // implicitly when renderInsightTable and renderGlobalTodo refetch data).
+
+            // This assumes renderInsightTable and renderGlobalTodo are now ASYNC 
+            // and fetch fresh data from the API as previously discussed.
+            if (typeof actionsByEmail === 'object' && actionsByEmail[email]) {
+              actionsByEmail[email] = actionsByEmail[email].filter(x => x.id !== id);
+            }
+            renderInsightTable();
+
+
+            // 2. Update the main Lead Page view (in case other details need refreshing)
+            if (typeof renderSelected === 'function') renderSelected();
+
+            // 3. Update the Global Todo Lists
+            renderGlobalTodo(false);
+            renderGlobalTodo(true);
+
+            toast('Insight deleted successfully');
+
+          } catch (error) {
+            console.error('Table Deletion Error:', error);
+            toast(`Error deleting item: ${error.message}`, true);
+            // Re-render to ensure UI reflects the potentially failed state
+            renderInsightTable();
+          }
+        };
+      });
+    }
+
+    function openEditActionDrawer(item) {
+      if (!selected) return toast('Select a user first');
+
+      // Ensure all fields are being populated correctly, using item.id from the edit button handler
+      $('#fLeadDisplay').value = `${selected.name || selected.email} (${selected.email})`;
+
+      // Note: item.tab_context may contain the context if retrieved from the API
+      $('#fTab').value = item.tab_context || item.tab || 'insight';
+
+      $('#fInsight').value = item.insight || '';
+      $('#fAction').value = item.action || '';
+      $('#fAssignee').value = item.assignee || '';
+      $('#fPriority').value = item.priority || 'Medium';
+      $('#fDue').value = item.due || '';
+      $('#fStatus').value = item.status || 'Open';
+      $('#fRevenue').value = item.revenue || '';
+
+      // Store the item ID for updating on the button's dataset
+      $('#fSave').dataset.editingId = item.id;
+
+      $('#actionTitle').textContent = `Edit Insight & Action — ${item.tab.charAt(0).toUpperCase() + item.tab.slice(1)}`;
+      $('#fSave').textContent = 'Update Item'; // Change button text to indicate update mode
+      if (typeof toggleAction === 'function') toggleAction(true);
+    }
+
+    function renderItemsList(containerId, email, tab) {
+      const list = (actionsByEmail[email] || []).filter(x => x.tab === tab);
+      const cont = $(containerId);
+      if (!cont) return;
+      if (!list.length) { cont.innerHTML = '<div class="muted">No items yet.</div>'; return; }
+      cont.innerHTML = list.map(it => `
+    <div class="todo-row" data-id="${esc(it.id)}">
+      <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
+        <div><b>${esc(it.insight || '-')}</b><br/><span class="muted">${esc(it.action || '-')}</span></div>
+        <div class="todo-meta">
+          <span class="todo-chip">${esc(it.priority || 'Medium')}</span>
+          <span class="todo-chip">${esc(it.status || 'Open')}</span>
+          ${it.due ? `<span class="todo-chip">Due: ${esc(it.due)}</span>` : ''}
+          ${it.assignee ? `<span class="todo-chip">Owner: ${esc(it.assignee)}</span>` : ''}
+          ${it.revenue ? `<span class="todo-chip">RM ${Number(it.revenue).toLocaleString()}</span>` : ''}
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <select class="statusSel">
+          <option ${it.status === 'Open' ? 'selected' : ''}>Open</option>
+          <option ${it.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
+          <option ${it.status === 'Done' ? 'selected' : ''}>Done</option>
+        </select>
+        <button class="ghost del" style="width:auto"><i class="fa-solid fa-trash"></i> Delete</button>
+      </div>
+    </div>
+  `).join('');
+      cont.querySelectorAll('.statusSel').forEach(sel => {
+        sel.onchange = (e) => {
+          const id = e.target.closest('.todo-row').dataset.id;
+          const arr = actionsByEmail[email]; const it = arr.find(x => x.id === id); if (it) { it.status = e.target.value; saveCache(); renderGlobalTodo(false); renderGlobalTodo(true); }
+        };
+      });
+      cont.querySelectorAll('.del').forEach(btn => {
+        btn.onclick = (e) => {
+          const id = e.target.closest('.todo-row').dataset.id;
+          actionsByEmail[email] = (actionsByEmail[email] || []).filter(x => x.id !== id);
+          saveCache(); renderItemsList(containerId, email, tab); renderInsightTable(); renderGlobalTodo(false); renderGlobalTodo(true);
+        };
+      });
+    }
+
+    /* GLOBAL TODO */
+    async function renderGlobalTodo(full = false) {
+
+      const cont = full ? $('#todoListFull') : $('#todoList');
+
+      // **FIX: Safely exit if the required container element is missing**
+      let currentActionsByEmail = {};
+      if (!full) {
+        try {
+          const response = await fetch('http://localhost:8000/api/get-insights-temp');
+          if (!response.ok) {
+            // Throw an error if the network response is bad (e.g., 404, 500)
+            throw new Error('Failed to fetch insights from temporary storage.');
+          }
+          const allInsights = await response.json();
+
+          // Transform the flat array of items from the API into the nested object structure
+          allInsights.forEach(item => {
+            const email = item.user_email;
+            if (!currentActionsByEmail[email]) {
+              currentActionsByEmail[email] = [];
+            }
+            // Push the item, mapping API names (snake_case) to JS names (camelCase)
+            currentActionsByEmail[email].push({
+              email: item.user_email,
+              tab: item.tab_context,
+              insight: item.insight,
+              action: item.action,
+              assignee: item.assignee,
+              priority: item.priority,
+              due: item.due_date,
+              status: item.status,
+              revenue: item.revenue,
+              id: item.id,
+              createdAt: item.created_at
+            });
+          });
+
+          // Temporarily update the global actionsByEmail for functions that rely on it (like renderSelected)
+          // NOTE: This should be removed once all functions fetch data directly.
+          if (typeof actionsByEmail !== 'undefined') {
+            // Clear all existing keys from the global object
+            for (const key in actionsByEmail) {
+              if (actionsByEmail.hasOwnProperty(key)) {
+                delete actionsByEmail[key];
+              }
+            }
+            // Assign the new, clean properties
+            Object.assign(actionsByEmail, currentActionsByEmail);
+          }
+        } catch (e) {
+          console.error('Error fetching insights for Global To-Do:', e);
+          cont.innerHTML = '<div class="muted">Error loading items. Check the console.</div>';
+          return;
+        }
+      }
+      // ------------------------------------------------------------------
+
+      // If 'full' is true, defer rendering to the specialized table function
+      if (full) {
+        if (typeof renderTodoTableFull === 'function') {
+          // NOTE: renderTodoTableFull must also be updated to read data from the API or accept it as a parameter
+          renderTodoTableFull();
+        }
+        return;
+      }
+
+      // Original card view for dashboard
+      const rows = [];
+
+      // **CRITICAL CHANGE: Use the locally fetched data structure**
+      for (const [email, items] of Object.entries(currentActionsByEmail)) {
+        const lead = profiles[email]; // profiles is assumed to be a global object that is loaded on init
+        (items || []).forEach(it => {
+          rows.push({
+            // Mapping item properties to row properties
+            email, leadName: lead?.name || email, tab: it.tab, insight: it.insight, action: it.action,
+            due: it.due || '', priority: it.priority || 'Medium', assignee: it.assignee || '',
+            status: it.status || 'Open', revenue: Number(it.revenue || 0), id: it.id, createdAt: it.createdAt
+          });
+        });
+      }
+
+      // Sorting logic is unchanged and uses the retrieved 'rows'
+      rows.sort((a, b) => {
+        const pr = v => ({ High: 3, Medium: 2, Low: 1 }[v] || 0);
+        const s = v => ({ Open: 3, 'In Progress': 2, Done: 1 }[v] || 0);
+        const pd = pr(b.priority) - pr(a.priority); if (pd) return pd;
+        const sd = s(b.status) - s(a.status); if (sd) return sd;
+        const ad = (a.due ? new Date(a.due).getTime() : 0) - (b.due ? new Date(b.due).getTime() : 0); if (ad) return ad;
+        return (b.revenue || 0) - (a.revenue || 0);
+      });
+
+      if (!rows.length) {
+        cont.innerHTML = '<div class="muted">No action items yet. Click "Add Insight & Action".</div>';
+        return;
+      }
+
+      // Render the HTML
+      cont.innerHTML = rows.map(r => `
+        <div class="todo-row" data-email="${esc(r.email)}" data-tab="${esc(r.tab)}">
+            <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
+                <div style="font-weight:900">${esc(r.leadName)}</div>
+                <div class="todo-meta">
+                    <span class="todo-chip">Tab: ${esc(r.tab)}</span>
+                    <span class="todo-chip">Priority: ${esc(r.priority)}</span>
+                    <span class="todo-chip">Status: ${esc(r.status)}</span>
+                    ${r.due ? `<span class="todo-chip">Due: ${esc(r.due)}</span>` : ''}
+                    ${r.assignee ? `<span class="todo-chip">Owner: ${esc(r.assignee)}</span>` : ''}
+                    ${r.revenue ? `<span class="todo-chip">RM ${Number(r.revenue).toLocaleString()}</span>` : ''}
+                </div>
+            </div>
+            <div style="margin-top:6px"><b>Insight:</b> ${esc(r.insight || '-')}</div>
+            <div style="margin-top:6px"><b>Action:</b> ${esc(r.action || '-')}</div>
+            <div style="margin-top:8px"><button class="ghost gotoLead" style="width:auto"><i class="fa-solid fa-arrow-up-right-from-square"></i> Open Lead</button></div>
+        </div>
+    `).join('');
+
+      // Event listener logic (unchanged)
+      cont.querySelectorAll('.gotoLead').forEach(btn => {
+        btn.onclick = (e) => {
+          const row = e.currentTarget.closest('.todo-row');
+          const email = row.dataset.email, tab = row.dataset.tab;
+          if (!profiles[email]) return;
+          selected = profiles[email];
+          // ensure Dashboard
+          $('#dashboardView').style.display = 'block'; $('#todoView').style.display = 'none';
+          if (typeof renderSelected === 'function') renderSelected(); // Defensive check
+          // highlight in list
+          $$('#userList .user').forEach(x => x.classList.remove('active'));
+          const el = [...$$('#userList .user')].find(u => u.dataset.email === email); if (el) el.classList.add('active');
+          // switch tab
+          const t = [...$$('.tab')].find(tb => tb.dataset.tab === tab) || document.querySelector('.tab.active');
+          if (t) { t.click(); }
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        };
+      });
+    }
+
+    function renderTodoTableFull() {
+      const tbody = $('#todoTableBody');
+      const noTodoMessage = $('#noTodoMessage');
+
+      // Get filter values
+      const fWebinar = $('#todoFilterWebinar').checked;
+      const fProperty = $('#todoFilterProperty').checked;
+      const fPaid = $('#todoFilterPaid').checked;
+      const fBooked = $('#todoFilterBooked').checked;
+      const fConverted = $('#todoFilterConverted').checked;
+      const fCancelled = $('#todoFilterCancelled').checked;
+      const fAssignee = $('#todoFilterAssignee').value;
+
+      const rows = [];
+      let totalRevenue = 0;
+
+      for (const [email, items] of Object.entries(actionsByEmail)) {
+        const lead = profiles[email];
+        if (!lead) continue;
+
+        // Check if lead matches tag filters
+        const hasWebinar = lead.hasWebinar;
+        const hasProperty = lead.properties.size > 0;
+        const isPaid = (lead.csv?.total || 0) >= 2388;
+        const isBooked = userHasBooking(lead, 'book');
+        const isConverted = userHasBooking(lead, 'convert');
+        const isCancelled = userHasBooking(lead, 'cancel');
+
+        // Apply filters
+        if (fWebinar && !hasWebinar) continue;
+        if (fProperty && !hasProperty) continue;
+        if (fPaid && !isPaid) continue;
+        if (fBooked && !isBooked) continue;
+        if (fConverted && !isConverted) continue;
+        if (fCancelled && !isCancelled) continue;
+
+        (items || []).forEach(it => {
+          // Apply assignee filter
+          if (fAssignee && it.assignee !== fAssignee) return;
+
+          rows.push({
+            email,
+            leadName: lead?.name || email,
+            tab: it.tab,
+            insight: it.insight,
+            action: it.action,
+            due: it.due || '',
+            priority: it.priority || 'Medium',
+            assignee: it.assignee || '',
+            status: it.status || 'Open',
+            revenue: Number(it.revenue || 0),
+            id: it.id,
+            createdAt: it.createdAt,
+            tags: {
+              webinar: hasWebinar,
+              property: hasProperty,
+              paid: isPaid,
+              booked: isBooked,
+              converted: isConverted,
+              cancelled: isCancelled
+            }
+          });
+
+          totalRevenue += Number(it.revenue || 0);
+        });
+      }
+
+      // Update total revenue display
+      $('#totalTodoRevenue').textContent = currency(totalRevenue);
+
+      rows.sort((a, b) => {
+        const pr = v => ({ High: 3, Medium: 2, Low: 1 }[v] || 0);
+        const s = v => ({ Open: 3, 'In Progress': 2, Done: 1 }[v] || 0);
+        const pd = pr(b.priority) - pr(a.priority); if (pd) return pd;
+        const sd = s(b.status) - s(a.status); if (sd) return sd;
+        const ad = (a.due ? new Date(a.due).getTime() : 0) - (b.due ? new Date(b.due).getTime() : 0); if (ad) return ad;
+        return (b.revenue || 0) - (a.revenue || 0);
+      });
+
+      if (!rows.length) {
+        tbody.innerHTML = '';
+        noTodoMessage.style.display = 'block';
+        $('#todoTableFull').style.display = 'none';
+        return;
+      }
+
+      tbody.innerHTML = rows.map(r => `
+    <tr data-email="${esc(r.email)}" data-tab="${esc(r.tab)}">
+      <td><a href="#" class="gotoLead" style="color:var(--primary);font-weight:700">${esc(r.leadName)}</a></td>
+      <td>
+        ${r.tags.webinar ? '<span class="badge b-webinar">Webinar</span>' : ''}
+        ${r.tags.property ? '<span class="badge b-prop">Property</span>' : ''}
+        ${r.tags.paid ? '<span class="badge" style="background:#fff7ed;color:#9a3412">Paid ≥ 2388</span>' : ''}
+        ${r.tags.booked ? '<span class="badge" style="background:#e0f2fe;color:#075985">Booked</span>' : ''}
+        ${r.tags.converted ? '<span class="badge" style="background:#dcfce7;color:#166534">Converted</span>' : ''}
+        ${r.tags.cancelled ? '<span class="badge" style="background:#fee2e2;color:#991b1b">Cancelled</span>' : ''}
+      </td>
+      <td>${esc(r.tab)}</td>
+      <td>${esc(r.insight || '-')}</td>
+      <td>${esc(r.action || '-')}</td>
+      <td>${esc(r.assignee || '-')}</td>
+      <td>${esc(r.priority || 'Medium')}</td>
+      <td>${r.due ? esc(r.due) : '-'}</td>
+      <td>${r.revenue ? Number(r.revenue).toLocaleString() : '-'}</td>
+      <td>
+        <select class="statusSel">
+          <option ${r.status === 'Open' ? 'selected' : ''}>Open</option>
+          <option ${r.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
+          <option ${r.status === 'Done' ? 'selected' : ''}>Done</option>
+        </select>
+      </td>
+      <td class="action-cell">
+        <button class="ghost gotoLead" style="width:auto" title="Open Lead"><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
+      </td>
+    </tr>
+  `).join('');
+
+      noTodoMessage.style.display = 'none';
+      $('#todoTableFull').style.display = 'table';
+
+      // Add event listeners for gotoLead links
+      tbody.querySelectorAll('.gotoLead').forEach(link => {
+        link.onclick = (e) => {
+          e.preventDefault();
+          const row = e.target.closest('tr');
+          const email = row.dataset.email, tab = row.dataset.tab;
+          if (!profiles[email]) return;
+          selected = profiles[email];
+          // ensure Dashboard
+          $('#dashboardView').style.display = 'block'; $('#todoView').style.display = 'none';
+          renderSelected();
+          // highlight in list
+          $$('#userList .user').forEach(x => x.classList.remove('active'));
+          const el = [...$$('#userList .user')].find(u => u.dataset.email === email); if (el) el.classList.add('active');
+          // switch tab
+          const t = [...$$('.tab')].find(tb => tb.dataset.tab === tab) || document.querySelector('.tab.active');
+          if (t) { t.click(); }
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        };
+      });
+
+      // Add event listeners for status changes
+      tbody.querySelectorAll('.statusSel').forEach(sel => {
+        sel.onchange = (e) => {
+          const row = e.target.closest('tr');
+          const email = row.dataset.email;
+          const id = row.querySelector('.gotoLead').closest('tr').dataset.id;
+          const arr = actionsByEmail[email];
+          const it = arr.find(x => x.id === id);
+          if (it) {
+            it.status = e.target.value;
+            saveCache();
+            renderGlobalTodo(false);
+            renderGlobalTodo(true);
+          }
+        };
+      });
+    }
+
+    // Add event listeners for todo filters
+    ['#todoFilterWebinar', '#todoFilterProperty', '#todoFilterPaid', '#todoFilterBooked', '#todoFilterConverted', '#todoFilterCancelled', '#todoFilterAssignee']
+      .forEach(id => {
+        const el = $(id);
+        if (el) el.addEventListener('change', () => renderGlobalTodo(true));
+      });
+
+    /* BOOKINGS */
+    function renderBookings() {
+      const email = selected?.email; if (!email) return;
+      const rows = bookingsByEmail[email] || [];
+      const tbody = $('#bkTable tbody');
+      if (!rows.length) { tbody.innerHTML = `<tr><td colspan="6" class="muted">No bookings yet. Add one above.</td></tr>`; }
+      else {
+        tbody.innerHTML = rows.map((b, i) => `
+      <tr>
+        <td>${esc(b.name || '')}</td>
+        <td>${esc(b.unit || '')}</td>
+        <td>${currency(b.price || 0)}</td>
+        <td>${currency(b.commission || 0)}</td>
+        <td>${esc(b.status || 'Book')}</td>
+        <td><button data-i="${i}" class="ghost" style="width:auto">Delete</button></td>
+      </tr>`).join('');
+        $$('#bkTable tbody .ghost').forEach(btn => btn.onclick = () => { const idx = +btn.dataset.i; rows.splice(idx, 1); bookingsByEmail[email] = rows; saveCache(); renderBookings(); updateMetrics(); renderUserList(); });
+      }
+      const total = rows.filter(b => (b.status || '').toLowerCase() === 'convert').reduce((s, b) => s + Number(b.commission || 0), 0);
+      $('#bkTotal').textContent = currency(total);
+    }
+
+    function addBooking() {
+      if (!selected) return toast('Select a user first');
+      const email = selected.email;
+      const b = {
+        name: ($('#bkName').value || '').trim(),
+        unit: ($('#bkUnit').value || '').trim(),
+        price: parseFloat($('#bkPrice').value || '0') || 0,
+        commission: parseFloat($('#bkComm').value || '0') || 0,
+        status: ($('#bkStatus').value || 'Book').trim()
+      };
+      if (!bookingsByEmail[email]) bookingsByEmail[email] = [];
+      bookingsByEmail[email].push(b);
+      $('#bkName').value = ''; $('#bkUnit').value = ''; $('#bkPrice').value = ''; $('#bkComm').value = ''; $('#bkStatus').value = 'Book';
+      saveCache(); renderBookings(); updateMetrics(); renderUserList(); toast('Booking added');
+    }
+
+    /* CACHE */
+    const CACHE_KEY = 'plab-ai-cache-v6';
+
+    function buildCacheKey() {
+      const zFrom = $('#zwFrom')?.value || '2024-01-01';
+      const zTo = $('#zwTo')?.value || ymd(new Date());
+      const plBase = $('#plBase')?.value?.trim() || '';
+      const zwUrl = $('#zwUrl')?.value?.trim() || '';
+      return JSON.stringify({ plBase, zwUrl, zFrom, zTo });
+    }
+
+    function saveCache() {
+      try {
+        const payload = {
+          _meta: { key: buildCacheKey(), ts: new Date().toISOString() },
+          profiles, allActivities, webinarByEmail, csvPurchasesByEmail, bookingsByEmail,
+          actionsByEmail, opportunityByEmail,
+          prefs: {
+            plBase: $('#plBase')?.value || '', plKey: $('#plKey')?.value || '',
+            zwUrl: $('#zwUrl')?.value || '', zwHost: $('#zwHost')?.value || '',
+            zwFrom: $('#zwFrom')?.value || '', zwTo: $('#zwTo')?.value || '',
+            assigneeList: $('#assigneeList')?.value || 'John, Sarah, Mike, Lisa, David, Emily'
+          }
+        };
+        localStorage.setItem(CACHE_KEY, JSON.stringify(payload));
+        $('#cacheInfo').textContent = `Saved cache at ${new Date().toLocaleString()}`;
+        $('#lastSaved').textContent = `Saved cache at ${new Date().toLocaleString()}`;
+      } catch (e) { $('#cacheInfo').textContent = 'Cache save failed'; }
+    }
+
+    function loadCacheIfMatch() {
+      try {
+        const raw = localStorage.getItem(CACHE_KEY); if (!raw) { $('#cacheInfo').textContent = 'No cache found'; return false; }
+        const data = JSON.parse(raw);
+        if (data?._meta?.key !== buildCacheKey()) { $('#cacheInfo').textContent = 'Cache exists but settings changed'; return false; }
+        profiles = data.profiles || {}; allActivities = data.allActivities || []; webinarByEmail = data.webinarByEmail || {}; csvPurchasesByEmail = data.csvPurchasesByEmail || {}; bookingsByEmail = data.bookingsByEmail || {};
+        actionsByEmail = data.actionsByEmail || {}; opportunityByEmail = data.opportunityByEmail || {};
+        if (data.prefs) {
+          $('#plBase').value = data.prefs.plBase || $('#plBase').value;
+          $('#plKey').value = data.prefs.plKey || $('#plKey').value;
+          $('#zwUrl').value = data.prefs.zwUrl || $('#zwUrl').value;
+          $('#zwHost').value = data.prefs.zwHost || $('#zwHost').value;
+          $('#zwFrom').value = data.prefs.zwFrom || $('#zwFrom').value;
+          $('#zwTo').value = data.prefs.zwTo || $('#zwTo').value;
+          $('#assigneeList').value = data.prefs.assigneeList || $('#assigneeList').value;
+        }
+        $('#cacheInfo').textContent = `Loaded cache from ${new Date(data._meta.ts).toLocaleString()}`;
+        $('#lastSaved').textContent = `Loaded cache from ${new Date(data._meta.ts).toLocaleString()}`;
+        updateMetrics(); renderUserList(); renderGlobalTodo(false); renderGlobalTodo(true);
+        ensureFiltersVisible();
+        const first = $('#userList .user'); if (first) first.click();
+        updateAssigneeDropdown();
+        return true;
+      } catch (e) { $('#cacheInfo').textContent = 'Cache load failed'; return false; }
+    }
+
+    function ensureFiltersVisible() {
+      // This targets all filter chips and forces them to be displayed as inline-flex.
+      const filterChips = $$('#filtersRow .chip');
+      if (filterChips.length > 0) {
+        filterChips.forEach(el => el.style.display = 'inline-flex');
+      }
+    }
+
+    function clearCache() {
+      localStorage.removeItem(CACHE_KEY);
+      $('#cacheInfo').textContent = 'Cache cleared';
+      $('#lastSaved').textContent = '';
+    }
+
+    /* BOOTSTRAP */
+    (async function boot() {
+      try {
+        // Initialize assignee dropdown
+        updateAssigneeDropdown();
+
+        // Initialize the AI Coach module
+        initAICoach();
+
+        // ensure end-date default
+        $('#zwTo').value = $('#zwTo').value || ymd(new Date());
+        // Try cache first
+        if (loadCacheIfMatch()) {
+          updateMetrics(); // It's good practice to update metrics after cache load too
+          renderUserList();
+        } else {
+          overlayStatus('Loading PropertyLab…');
+          await loadPropertyLab();
+          overlayStatus('Loading Zoom…');
+          await fetchAllWebinars();
+          updateMetrics(); renderUserList(); renderGlobalTodo(false); renderGlobalTodo(true);
+          const first = $('#userList .user'); if (first) { first.click(); }
+        }
+      } catch (e) {
+        toast('Init error: ' + e.message, true);
+      } finally {
+        window.__dataReady = true;
+        $('#overlay').style.display = 'none';
+        $('main').setAttribute('aria-busy', 'false');
+      }
+    })();
+  </script>
+</body>
+
+</html>
