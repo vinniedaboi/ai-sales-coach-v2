@@ -867,6 +867,16 @@
     </div>
 
     <div class="section">
+      <h4>ChatDaddy API</h4>
+      <label>Account ID</label>
+      <input id="cdAccountId" value="acc_8ccb6226-76c4-44a2-a4_2a18" />
+      <label>API Key</label>
+      <input id="cdApiKey" type="password" value="apit_uXzp0yEL5Ucau9GYTRkub_fiQhSH3qR7bDlTkZA6AUw" />
+      <button id="btnChatDaddyReload">Test ChatDaddy</button>
+      <div id="cdStatus" class="muted" style="margin-top:8px">—</div>
+    </div>
+
+    <div class="section">
       <h4>Payments (CSV only)</h4>
       <label>Upload CSV (email, name, description/amount or Total Spend)</label>
       <input id="csvInput" type="file" accept=".csv,text/csv" />
@@ -1095,6 +1105,7 @@
             <div class="tab" data-tab="booking">Property Booking</div>
             <div class="tab" data-tab="timeline">Timeline</div>
             <div class="tab" data-tab="raw">Raw from PropertyLab</div>
+            <div class="tab" data-tab="whatsapp">WhatsApp</div>
           </div>
 
           <div class="panel active" id="p-insight">
@@ -1251,64 +1262,84 @@
               style="background:#f8fafc;border:1px solid var(--border);border-radius:12px;padding:12px;white-space:pre-wrap"></pre>
           </div>
 
-          <div class="panel" id="p-coach">
-            <div class="coach-grid"
-              style="display:grid;grid-template-columns:minmax(260px,360px) 1fr;gap:14px;height:100%">
-              <div class="coach-side"
-                style="border:1px solid var(--border);border-radius:12px;padding:12px;background:#fff;display:flex;flex-direction:column;gap:8px;height:100%; overflow-y: auto;">
-                <div style="font-weight:900">AI Sales Coach</div>
-                <label for="coach-model-select">🤖 AI Model:</label>
-                <select id="coach-model-select">
-                  <option value="gemini" selected>Gemini</option>
-                  <option value="claude">Claude</option>
-                  <option value="deepseek">DeepSeek</option>
-                  <option value="chatgpt">ChatGPT</option>
-                  <option value="alibaba">AliBaBa AI</option>
-                </select>
+          <div class="panel" id="p-whatsapp">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <strong>WhatsApp Chat</strong>
+              <button id="btnWARefresh" class="light"><i class="fa-solid fa-rotate"></i> Refresh</button>
+            </div>
 
-                <label>🎭 Role (Client):</label>
-                <input id="coach-role" placeholder="e.g. Marketing Manager" disabled />
+            <div id="waMessages"
+              style="border:1px solid #ddd;border-radius:8px;padding:12px;max-height:60vh;overflow-y:auto;background:#f0fdf4">
+              <div class="muted">No messages yet.</div>
+            </div>
 
-                <label>💼 Product:</label>
-                <input id="coach-product" placeholder="e.g. CRM Software" />
+            <div style="display:flex;gap:8px;margin-top:10px">
+              <input id="waCompose" placeholder="Type a WhatsApp message..."
+                style="flex:1;padding:10px;border-radius:8px;border:1px solid #ddd" />
+              <button id="waSend" class="primary" style="background:#25d366;width:auto"><i
+                  class="fa-brands fa-whatsapp"></i> Send</button>
+            </div>
+          </div>
+        </div>
 
-                <label>📝 Custom Prompt:</label>
-                <textarea id="coach-custom-prompt" rows="8" placeholder=""></textarea>
+        <div class="panel" id="p-coach">
+          <div class="coach-grid"
+            style="display:grid;grid-template-columns:minmax(260px,360px) 1fr;gap:14px;height:100%">
+            <div class="coach-side"
+              style="border:1px solid var(--border);border-radius:12px;padding:12px;background:#fff;display:flex;flex-direction:column;gap:8px;height:100%; overflow-y: auto;">
+              <div style="font-weight:900">AI Sales Coach</div>
+              <label for="coach-model-select">🤖 AI Model:</label>
+              <select id="coach-model-select">
+                <option value="gemini" selected>Gemini</option>
+                <option value="claude">Claude</option>
+                <option value="deepseek">DeepSeek</option>
+                <option value="chatgpt">ChatGPT</option>
+                <option value="alibaba">AliBaBa AI</option>
+              </select>
 
-                <div class="coach-button-row">
-                  <button id="coach-start-btn">Start Session</button>
-                  <button id="coach-clear-btn" style="background:#ef4444;">Clear History</button>
-                </div>
-                <div class="coach-button-row">
-                  <button id="coach-score-btn" style="background:#7c3aed;">Generate Scorecard</button>
-                  <button id="coach-upload-btn" style="background:#059669;">Upload Session</button>
-                </div>
+              <label>🎭 Role (Client):</label>
+              <input id="coach-role" placeholder="e.g. Marketing Manager" disabled />
 
+              <label>💼 Product:</label>
+              <input id="coach-product" placeholder="e.g. CRM Software" />
 
-                <div id="coach-status-msg" class="coach-success"></div>
+              <label>📝 Custom Prompt:</label>
+              <textarea id="coach-custom-prompt" rows="8" placeholder=""></textarea>
+
+              <div class="coach-button-row">
+                <button id="coach-start-btn">Start Session</button>
+                <button id="coach-clear-btn" style="background:#ef4444;">Clear History</button>
+              </div>
+              <div class="coach-button-row">
+                <button id="coach-score-btn" style="background:#7c3aed;">Generate Scorecard</button>
+                <button id="coach-upload-btn" style="background:#059669;">Upload Session</button>
               </div>
 
-              <div class="coach-chat"
-                style="border:1px solid var(--border);border-radius:12px;background:#fff;display:flex;flex-direction:column;height:100%;min-height:360px">
-                <div class="coach-head" style="padding:10px 12px;border-bottom:1px solid var(--border);font-weight:900">
-                  Conversation with Lead</div>
-                <div id="coach-messages" style="padding:10px;overflow:auto;flex:1">
-                  <div class="muted">Select a lead and click "Start Session".</div>
-                </div>
-                <div id="coach-input-area" style="padding:10px; border-top: 1px solid var(--border)">
-                  <input id="coach-user-input" placeholder="Type or speak..." style="margin-bottom:0" />
-                  <button id="coach-mic-btn" style="width:auto">🎤</button>
-                  <button id="coach-send-btn" style="width:auto">Send</button>
-                </div>
+
+              <div id="coach-status-msg" class="coach-success"></div>
+            </div>
+
+            <div class="coach-chat"
+              style="border:1px solid var(--border);border-radius:12px;background:#fff;display:flex;flex-direction:column;height:100%;min-height:360px">
+              <div class="coach-head" style="padding:10px 12px;border-bottom:1px solid var(--border);font-weight:900">
+                Conversation with Lead</div>
+              <div id="coach-messages" style="padding:10px;overflow:auto;flex:1">
+                <div class="muted">Select a lead and click "Start Session".</div>
               </div>
-              <div class="dashboard-card" id="ai-coach-scorecard-panel" style="display: none;">
-                <div id="coach-scorecard-content">
-                </div>
+              <div id="coach-input-area" style="padding:10px; border-top: 1px solid var(--border)">
+                <input id="coach-user-input" placeholder="Type or speak..." style="margin-bottom:0" />
+                <button id="coach-mic-btn" style="width:auto">🎤</button>
+                <button id="coach-send-btn" style="width:auto">Send</button>
+              </div>
+            </div>
+            <div class="dashboard-card" id="ai-coach-scorecard-panel" style="display: none;">
+              <div id="coach-scorecard-content">
               </div>
             </div>
           </div>
         </div>
       </div>
+    </div>
     </div>
 
     <div class="dashboard" id="todoView" style="display:none">
@@ -2443,6 +2474,10 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
         window.updateCoachContext(selected);
       }
 
+      if (window.loadChatMessages && selected?.phone) {
+        window.loadChatMessages(selected.phone);
+      }
+
       // default render active tab
       const active = document.querySelector('.tab.active')?.dataset.tab || 'insight';
       renderPanel(active);
@@ -3250,6 +3285,210 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
         $('main').setAttribute('aria-busy', 'false');
       }
     })();
+
+    function getChatDaddyConfig() {
+      // Try drawer inputs first
+      const apiKeyInput = document.getElementById('cdApiKey');
+      const accIdInput = document.getElementById('cdAccountId');
+      const token = apiKeyInput?.value?.trim() || localStorage.getItem('chatdaddy_api_key') || '';
+      const acc = accIdInput?.value?.trim() || localStorage.getItem('chatdaddy_account_id') || '';
+
+      if (!token || !acc) {
+        console.warn('⚠️ Missing ChatDaddy credentials');
+        toast('Missing ChatDaddy API credentials — check settings', true);
+        return null;
+      }
+
+      return { token, acc };
+    }
+
+
+    const CHATDADDY_BASE = "https://api.chatdaddy.tech";
+
+    async function loadWAMessages() {
+      if (!selected?.phone) return toast('Select a lead with phone number', true);
+
+      const container = document.getElementById('waMessages');
+      container.innerHTML = '<div class="muted">Loading chat...</div>';
+
+      const creds = getChatDaddyConfig();
+      if (!creds) return;
+      const { token, acc } = creds;
+
+      const phone = selected.phone.replace(/\D/g, '');
+      const chatId = `${phone}@s.whatsapp.net`;
+      const url = `https://api.chatdaddy.tech/im/messages/${acc}/${chatId}`;
+      console.log(`Loaded ${url}`);
+
+      try {
+        const res = await fetch(url, {
+          method: 'GET',
+          headers: {
+            Accept: 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          mode: 'cors',
+          cache: 'no-cache',
+          credentials: 'omit',
+        });
+
+        const text = await res.text();
+        if (!text) {
+          toast('No response body — likely empty conversation or blocked', true);
+          return;
+        }
+
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch {
+          console.warn('Response not valid JSON:', text);
+          toast('Invalid JSON returned', true);
+          return;
+        }
+
+        const messages = data.messages || data || [];
+        container.innerHTML = '';
+
+        if (!messages.length) {
+          container.innerHTML = '<div class="muted">No messages yet.</div>';
+          return;
+        }
+
+        // ✅ Sort messages oldest → newest
+        const ordered = [...messages].sort((a, b) => {
+          const ta = new Date(a.timestamp || a.createdAt || 0).getTime();
+          const tb = new Date(b.timestamp || b.createdAt || 0).getTime();
+          return ta - tb;
+        });
+
+        // ✅ Render messages
+        ordered.forEach(msg => {
+          const div = document.createElement('div');
+          div.style.margin = '6px 0';
+          div.style.padding = '8px 10px';
+          div.style.borderRadius = '10px';
+          div.style.maxWidth = '70%';
+          div.style.wordBreak = 'break-word';
+          div.style.background = msg.direction === 'outgoing' ? '#dcf8c6' : '#fff';
+          div.style.alignSelf = msg.direction === 'outgoing' ? 'flex-end' : 'flex-start';
+
+          const textPart = document.createElement('div');
+          textPart.textContent = msg.text || msg.message || '[non-text message]';
+          div.appendChild(textPart);
+
+          const ts = document.createElement('div');
+          ts.style.fontSize = '11px';
+          ts.style.opacity = 0.6;
+          ts.style.textAlign = msg.direction === 'outgoing' ? 'right' : 'left';
+          ts.textContent = msg.timestamp
+            ? new Date(msg.timestamp).toLocaleString()
+            : '';
+          div.appendChild(ts);
+
+          container.appendChild(div);
+        });
+
+        // ✅ Always scroll to bottom smoothly
+        container.scrollTo({
+          top: container.scrollHeight,
+          behavior: 'smooth',
+        });
+      } catch (err) {
+        console.error('Error fetching ChatDaddy messages:', err);
+        toast('Failed to load WhatsApp messages', true);
+      }
+    }
+
+
+
+
+    async function sendWAMessage() {
+      if (!selected?.phone) return toast('Select a lead with phone number', true);
+      const creds = getChatDaddyConfig();
+      if (!creds) return;
+      const { token, acc } = creds;
+      const text = document.getElementById('waCompose').value.trim();
+      if (!text) return;
+
+      const phone = selected.phone.replace(/\D/g, '');
+      const url = `https://api.chatdaddy.tech/im/messages/${acc}/${phone}@s.whatsapp.net`;
+
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({ text }),
+          mode: 'cors',
+        });
+
+        const textRes = await res.text();
+        console.log('Send response:', res.status, textRes);
+
+        if (!res.ok) {
+          toast(`Failed to send (${res.status})`, true);
+          return;
+        }
+
+        document.getElementById('waCompose').value = '';
+        toast('Message sent ✅');
+
+        // optionally append the message locally so it shows instantly
+        const container = document.getElementById('waMessages');
+        const div = document.createElement('div');
+        div.style.margin = '6px 0';
+        div.style.padding = '8px 10px';
+        div.style.borderRadius = '10px';
+        div.style.maxWidth = '70%';
+        div.style.wordBreak = 'break-word';
+        div.style.background = '#dcf8c6';
+        div.style.alignSelf = 'flex-end';
+        div.textContent = text;
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+
+        // refresh the full conversation
+        setTimeout(loadWAMessages, 1000);
+      } catch (err) {
+        console.error('Error sending message:', err);
+        toast('Failed to send message', true);
+      }
+    }
+
+
+    document.getElementById('waSend').addEventListener('click', sendWAMessage);
+    // Global event delegation — works even if the button is re-rendered
+    document.addEventListener('click', e => {
+      const refreshButton = e.target.closest('#btnWARefresh');
+      if (refreshButton) {
+        e.preventDefault();
+
+        // Force clear UI before reloading
+        const waMessages = document.getElementById('waMessages');
+        waMessages.innerHTML = '<div class="muted">Refreshing chat...</div>';
+
+        // Wait a bit to ensure selected is up-to-date
+        setTimeout(() => {
+          if (selected?.phone) {
+            loadWAMessages();
+          } else {
+            waMessages.innerHTML = '<div class="muted">No phone number for this lead.</div>';
+          }
+        }, 100);
+      }
+    });
+
+    document.querySelector('[data-tab="whatsapp"]').addEventListener('click', loadWAMessages);
+
+    // setInterval(() => {
+    //   const tabActive = document.querySelector('.tab.active')?.dataset.tab === 'whatsapp';
+    //   if (tabActive) loadWAMessages();
+    // }, 10000);
+
+
   </script>
 </body>
 
