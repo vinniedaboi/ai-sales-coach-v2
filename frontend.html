@@ -868,8 +868,9 @@
 
     <div class="section">
       <h4>ChatDaddy API</h4>
-      <label>Account ID</label>
-      <input id="cdAccountId" value="acc_8ccb6226-76c4-44a2-a4_2a18" />
+      <label>Account IDs (comma-separated)</label>
+      <input id="cdAccountIds"
+        value="acc_8ccb6226-76c4-44a2-a4_2a18,acc_8ccb6226-76c4-44a2-a4_5037,acc_8ccb6226-76c4-44a2-a4_4302" />
       <label>API Key</label>
       <input id="cdApiKey" type="password" value="apit_uXzp0yEL5Ucau9GYTRkub_fiQhSH3qR7bDlTkZA6AUw" />
       <button id="btnChatDaddyReload">Test ChatDaddy</button>
@@ -1263,6 +1264,10 @@
           </div>
 
           <div class="panel" id="p-whatsapp">
+            <div class="account-selector" style="margin-bottom:8px;">
+              <label>Account:</label>
+              <select id="chatAccountSelect"></select>
+            </div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
               <strong>WhatsApp Chat</strong>
               <button id="btnWARefresh" class="light"><i class="fa-solid fa-rotate"></i> Refresh</button>
@@ -3286,21 +3291,22 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
       }
     })();
 
-    function getChatDaddyConfig() {
-      // Try drawer inputs first
-      const apiKeyInput = document.getElementById('cdApiKey');
-      const accIdInput = document.getElementById('cdAccountId');
-      const token = apiKeyInput?.value?.trim() || localStorage.getItem('chatdaddy_api_key') || '';
-      const acc = accIdInput?.value?.trim() || localStorage.getItem('chatdaddy_account_id') || '';
+    function getChatDaddyConfig(selectedAccIndex = 0) {
+      const base = document.getElementById('cdBase')?.value.trim() || "https://api.chatdaddy.tech";
+      const token = document.getElementById('cdApiKey')?.value.trim() || localStorage.getItem('chatdaddy_api_key');
+      const accInput = document.getElementById('cdAccountIds')?.value.trim() || localStorage.getItem('chatdaddy_account_ids') || '';
 
-      if (!token || !acc) {
-        console.warn('⚠️ Missing ChatDaddy credentials');
+      if (!token || !accInput) {
         toast('Missing ChatDaddy API credentials — check settings', true);
         return null;
       }
 
-      return { token, acc };
+      const accounts = accInput.split(',').map(a => a.trim()).filter(a => a);
+      const acc = accounts[selectedAccIndex] || accounts[0];
+
+      return { base, token, acc, accounts };
     }
+
 
 
     const CHATDADDY_BASE = "https://api.chatdaddy.tech";
@@ -3311,9 +3317,9 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
       const container = document.getElementById('waMessages');
       container.innerHTML = '<div class="muted">Loading chat...</div>';
 
-      const creds = getChatDaddyConfig();
+      const creds = getChatDaddyConfig(window.selectedChatAccount || 0);
       if (!creds) return;
-      const { token, acc } = creds;
+      const { base, token, acc } = creds;
 
       const phone = selected.phone.replace(/\D/g, '');
       const chatId = `${phone}@s.whatsapp.net`;
@@ -3362,31 +3368,41 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
           return ta - tb;
         });
 
-        // ✅ Render messages
+        // ✅ Render messages (incoming vs outgoing styles)
         ordered.forEach(msg => {
-          const div = document.createElement('div');
-          div.style.margin = '6px 0';
-          div.style.padding = '8px 10px';
-          div.style.borderRadius = '10px';
-          div.style.maxWidth = '70%';
-          div.style.wordBreak = 'break-word';
-          div.style.background = msg.direction === 'outgoing' ? '#dcf8c6' : '#fff';
-          div.style.alignSelf = msg.direction === 'outgoing' ? 'flex-end' : 'flex-start';
+          const isOutgoing = msg.direction === 'outgoing' || msg.fromMe === true;
+
+          const wrapper = document.createElement('div');
+          wrapper.style.display = 'flex';
+          wrapper.style.justifyContent = isOutgoing ? 'flex-end' : 'flex-start';
+          wrapper.style.margin = '6px 0';
+
+          const bubble = document.createElement('div');
+          bubble.style.padding = '8px 10px';
+          bubble.style.borderRadius = isOutgoing ? '12px 12px 0 12px' : '12px 12px 12px 0';
+          bubble.style.maxWidth = '70%';
+          bubble.style.wordBreak = 'break-word';
+          bubble.style.background = isOutgoing ? '#dcf8c6' : '#f1f0f0';
+          bubble.style.color = '#000';
+          bubble.style.boxShadow = '0 1px 2px rgba(0,0,0,0.15)';
+          bubble.style.textAlign = 'left';
 
           const textPart = document.createElement('div');
           textPart.textContent = msg.text || msg.message || '[non-text message]';
-          div.appendChild(textPart);
+          bubble.appendChild(textPart);
 
           const ts = document.createElement('div');
           ts.style.fontSize = '11px';
           ts.style.opacity = 0.6;
-          ts.style.textAlign = msg.direction === 'outgoing' ? 'right' : 'left';
+          ts.style.marginTop = '4px';
+          ts.style.textAlign = isOutgoing ? 'right' : 'left';
           ts.textContent = msg.timestamp
-            ? new Date(msg.timestamp).toLocaleString()
+            ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             : '';
-          div.appendChild(ts);
+          bubble.appendChild(ts);
 
-          container.appendChild(div);
+          wrapper.appendChild(bubble);
+          container.appendChild(wrapper);
         });
 
         // ✅ Always scroll to bottom smoothly
@@ -3400,14 +3416,37 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
       }
     }
 
+    function renderAccountSelector() {
+      const creds = getChatDaddyConfig();
+      if (!creds) return;
+
+      const select = document.getElementById('chatAccountSelect');
+      select.innerHTML = '';
+      creds.accounts.forEach((acc, i) => {
+        const opt = document.createElement('option');
+        opt.value = i;
+        opt.textContent = acc;
+        select.appendChild(opt);
+      });
+
+      select.addEventListener('change', () => {
+        const index = parseInt(select.value, 10);
+        window.selectedChatAccount = index;
+        loadWAMessages(); // reload messages for that account
+      });
+    }
+
+    renderAccountSelector();
+
+
 
 
 
     async function sendWAMessage() {
       if (!selected?.phone) return toast('Select a lead with phone number', true);
-      const creds = getChatDaddyConfig();
+      const creds = getChatDaddyConfig(window.selectedChatAccount || 0);
       if (!creds) return;
-      const { token, acc } = creds;
+      const { base, token, acc } = creds;
       const text = document.getElementById('waCompose').value.trim();
       if (!text) return;
 
@@ -3491,5 +3530,4 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
 
   </script>
 </body>
-
 </html>
