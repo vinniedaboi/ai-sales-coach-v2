@@ -1286,63 +1286,63 @@
             </div>
           </div>
 
-          
-        <div class="panel" id="p-coach">
-          <div class="coach-grid"
-            style="display:grid;grid-template-columns:minmax(260px,360px) 1fr;gap:14px;height:100%">
-            <div class="coach-side"
-              style="border:1px solid var(--border);border-radius:12px;padding:12px;background:#fff;display:flex;flex-direction:column;gap:8px;height:100%; overflow-y: auto;">
-              <div style="font-weight:900">AI Sales Coach</div>
-              <label for="coach-model-select">🤖 AI Model:</label>
-              <select id="coach-model-select">
-                <option value="gemini" selected>Gemini</option>
-                <option value="claude">Claude</option>
-                <option value="deepseek">DeepSeek</option>
-                <option value="chatgpt">ChatGPT</option>
-                <option value="alibaba">AliBaBa AI</option>
-              </select>
 
-              <label>🎭 Role (Client):</label>
-              <input id="coach-role" placeholder="e.g. Marketing Manager" disabled />
+          <div class="panel" id="p-coach">
+            <div class="coach-grid"
+              style="display:grid;grid-template-columns:minmax(260px,360px) 1fr;gap:14px;height:100%">
+              <div class="coach-side"
+                style="border:1px solid var(--border);border-radius:12px;padding:12px;background:#fff;display:flex;flex-direction:column;gap:8px;height:100%; overflow-y: auto;">
+                <div style="font-weight:900">AI Sales Coach</div>
+                <label for="coach-model-select">🤖 AI Model:</label>
+                <select id="coach-model-select">
+                  <option value="gemini" selected>Gemini</option>
+                  <option value="claude">Claude</option>
+                  <option value="deepseek">DeepSeek</option>
+                  <option value="chatgpt">ChatGPT</option>
+                  <option value="alibaba">AliBaBa AI</option>
+                </select>
 
-              <label>💼 Product:</label>
-              <input id="coach-product" placeholder="e.g. CRM Software" />
+                <label>🎭 Role (Client):</label>
+                <input id="coach-role" placeholder="e.g. Marketing Manager" disabled />
 
-              <label>📝 Custom Prompt:</label>
-              <textarea id="coach-custom-prompt" rows="8" placeholder=""></textarea>
+                <label>💼 Product:</label>
+                <input id="coach-product" placeholder="e.g. CRM Software" />
 
-              <div class="coach-button-row">
-                <button id="coach-start-btn">Start Session</button>
-                <button id="coach-clear-btn" style="background:#ef4444;">Clear History</button>
+                <label>📝 Custom Prompt:</label>
+                <textarea id="coach-custom-prompt" rows="8" placeholder=""></textarea>
+
+                <div class="coach-button-row">
+                  <button id="coach-start-btn">Start Session</button>
+                  <button id="coach-clear-btn" style="background:#ef4444;">Clear History</button>
+                </div>
+                <div class="coach-button-row">
+                  <button id="coach-score-btn" style="background:#7c3aed;">Generate Scorecard</button>
+                  <button id="coach-upload-btn" style="background:#059669;">Upload Session</button>
+                </div>
+
+
+                <div id="coach-status-msg" class="coach-success"></div>
               </div>
-              <div class="coach-button-row">
-                <button id="coach-score-btn" style="background:#7c3aed;">Generate Scorecard</button>
-                <button id="coach-upload-btn" style="background:#059669;">Upload Session</button>
-              </div>
 
-
-              <div id="coach-status-msg" class="coach-success"></div>
-            </div>
-
-            <div class="coach-chat"
-              style="border:1px solid var(--border);border-radius:12px;background:#fff;display:flex;flex-direction:column;height:100%;min-height:360px">
-              <div class="coach-head" style="padding:10px 12px;border-bottom:1px solid var(--border);font-weight:900">
-                Conversation with Lead</div>
-              <div id="coach-messages" style="padding:10px;overflow:auto;flex:1">
-                <div class="muted">Select a lead and click "Start Session".</div>
+              <div class="coach-chat"
+                style="border:1px solid var(--border);border-radius:12px;background:#fff;display:flex;flex-direction:column;height:100%;min-height:360px">
+                <div class="coach-head" style="padding:10px 12px;border-bottom:1px solid var(--border);font-weight:900">
+                  Conversation with Lead</div>
+                <div id="coach-messages" style="padding:10px;overflow:auto;flex:1">
+                  <div class="muted">Select a lead and click "Start Session".</div>
+                </div>
+                <div id="coach-input-area" style="padding:10px; border-top: 1px solid var(--border)">
+                  <input id="coach-user-input" placeholder="Type or speak..." style="margin-bottom:0" />
+                  <button id="coach-mic-btn" style="width:auto">🎤</button>
+                  <button id="coach-send-btn" style="width:auto">Send</button>
+                </div>
               </div>
-              <div id="coach-input-area" style="padding:10px; border-top: 1px solid var(--border)">
-                <input id="coach-user-input" placeholder="Type or speak..." style="margin-bottom:0" />
-                <button id="coach-mic-btn" style="width:auto">🎤</button>
-                <button id="coach-send-btn" style="width:auto">Send</button>
-              </div>
-            </div>
-            <div class="dashboard-card" id="ai-coach-scorecard-panel" style="display: none;">
-              <div id="coach-scorecard-content">
+              <div class="dashboard-card" id="ai-coach-scorecard-panel" style="display: none;">
+                <div id="coach-scorecard-content">
+                </div>
               </div>
             </div>
           </div>
-        </div>
         </div>
 
       </div>
@@ -1400,11 +1400,11 @@
             Insight & Action" to get started.</div>
         </div>
       </div>
-    <!-- </div>
+      <!-- </div>
     <div id="todoList">
     </div> -->
-    <div id="todoListFull">
-    </div>
+      <div id="todoListFull">
+      </div>
   </main>
 
   <div id="purchModal" role="dialog" aria-modal="true" aria-labelledby="purchTitle"
@@ -2071,6 +2071,7 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
       mergeCSVIntoProfiles();
       $('#lastSaved').textContent = 'Loaded PropertyLab';
       updateMetrics(); renderUserList();
+      renderCoursesTab(allActivities);
     }
 
     function buildProfilesFromActivities(rows) {
@@ -2573,7 +2574,8 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
       </div>`;
         });
         grid.innerHTML = html || '<div class="muted">No courses.</div>';
-        renderItemsList('#coursesItems', selected.email, 'courses');
+        // renderItemsList('#coursesItems', selected.email, 'courses');
+        renderCoursesTab(selected.activities.filter(a => a.course_name));
       }
       if (which === 'purchases') {
         const body = $('#csvTable tbody'); const csv = profiles[selected.email]?.csv || { rows: [], total: 0 };
@@ -3528,6 +3530,78 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
     //   const tabActive = document.querySelector('.tab.active')?.dataset.tab === 'whatsapp';
     //   if (tabActive) loadWAMessages();
     // }, 10000);
+
+    /* === COURSES TAB RENDER FUNCTION === */
+    /* === FIXED: COURSES TAB RENDER FUNCTION === */
+function renderCoursesTab(data) {
+  const courseContainer = document.getElementById("coursesItems");
+  if (!courseContainer) return;
+
+  courseContainer.innerHTML = "";
+
+  if (!data || !data.length) {
+    courseContainer.innerHTML = '<div class="muted">No course activity found.</div>';
+    return;
+  }
+
+  // Group lessons by course name
+  const grouped = {};
+  data.forEach(item => {
+    if (!grouped[item.course_name]) grouped[item.course_name] = [];
+    grouped[item.course_name].push(item);
+  });
+
+  // Render each course as a table
+  for (const [courseName, lessons] of Object.entries(grouped)) {
+    const courseDiv = document.createElement("div");
+    courseDiv.className = "action-card";
+    courseDiv.style.marginBottom = "20px";
+    courseDiv.innerHTML = `
+      <h3 style="font-size:16px;font-weight:700;margin-bottom:8px;">${courseName}</h3>
+      <table style="width:100%;border-collapse:collapse;border:1px solid #ddd;font-size:14px;">
+        <thead>
+          <tr style="background:#f3f3f3;">
+            <th style="padding:6px;border:1px solid #ddd;text-align:left;">Lesson</th>
+            <th style="padding:6px;border:1px solid #ddd;text-align:left;">Watch Duration</th>
+            <th style="padding:6px;border:1px solid #ddd;text-align:left;">Total Length</th>
+            <th style="padding:6px;border:1px solid #ddd;text-align:left;">Progress (%)</th>
+            <th style="padding:6px;border:1px solid #ddd;text-align:left;">Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${lessons.map(l => {
+            const pct = Math.min(100, Math.round((l.watch_time / (parseTime(l.video_length) || 1)) * 100));
+            return `
+              <tr>
+                <td style="padding:6px;border:1px solid #ddd;">${l.lesson_name || '-'}</td>
+                <td style="padding:6px;border:1px solid #ddd;">${fmtDuration(l.watch_time)}</td>
+                <td style="padding:6px;border:1px solid #ddd;">${l.video_length || '-'}</td>
+                <td style="padding:6px;border:1px solid #ddd;">${pct}%</td>
+                <td style="padding:6px;border:1px solid #ddd;">${l.date || ''} ${l.time || ''}</td>
+              </tr>`;
+          }).join("")}
+        </tbody>
+      </table>
+    `;
+    courseContainer.appendChild(courseDiv);
+  }
+
+  // Helper functions
+  function parseTime(str) {
+    if (!str) return 0;
+    const parts = str.split(":").map(Number);
+    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    if (parts.length === 2) return parts[0] * 60 + parts[1];
+    return 0;
+  }
+
+  function fmtDuration(sec) {
+    if (!sec && sec !== 0) return '-';
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return `${m}m ${s}s`;
+  }
+}
 
 
   </script>
