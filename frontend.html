@@ -1084,6 +1084,7 @@
               <label class="chip"><input type="checkbox" id="fltBooked" /> Booked</label>
               <label class="chip"><input type="checkbox" id="fltConverted" /> Converted</label>
               <label class="chip"><input type="checkbox" id="fltCancelled" /> Cancelled</label>
+              <label class="chip"><input type="checkbox" id="fltCourses" /> Courses</label>
             </div>
             <div class="list" id="userList">
               <div class="muted">Loading…</div>
@@ -1381,6 +1382,7 @@
           <label><input type="checkbox" id="todoFilterBooked" /> Booked</label>
           <label><input type="checkbox" id="todoFilterConverted" /> Converted</label>
           <label><input type="checkbox" id="todoFilterCancelled" /> Cancelled</label>
+          <label><input type="checkbox" id="todoFilterCourses" /> Courses</label>
 
           <select id="todoFilterAssignee" style="margin-left:12px">
             <option value="">All Assignees</option>
@@ -1485,7 +1487,7 @@
 
     /* Search + Filters + Sort */
     $('#search').addEventListener('input', () => renderUserList());
-    ['#fltWebinar', '#fltProperty', '#fltPaid', '#fltBooked', '#fltConverted', '#fltCancelled', '#sortBy']
+    ['#fltWebinar', '#fltProperty', '#fltPaid', '#fltBooked', '#fltConverted', '#fltCancelled', '#fltCourses', '#sortBy']
       .forEach(id => $(id).addEventListener('change', () => renderUserList()));
 
     /* Tab switching */
@@ -1671,7 +1673,6 @@
           method: method,
           headers: {
             'Content-Type': 'application/json',
-            // Add your Laravel security headers here if required
           },
           body: JSON.stringify(dataToSave)
         });
@@ -2298,12 +2299,8 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
 
       // --- FIX: Check if the input is the mock object or a standard File object ---
       if (typeof file === 'object' && file !== null && typeof file.text === 'function') {
-        // Case 1: Input is the mock object from the server response (e.g., in btnProcess listener)
-        // It has a .text() method, so we use it to get the content directly.
         txt = await file.text();
       } else {
-        // Case 2: Input is a standard browser File/Blob object (e.g., in importCSV listener)
-        // We use the FileReader API to read its content.
         txt = await new Promise((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = (e) => resolve(e.target.result);
@@ -2442,12 +2439,13 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
 
     function userPassesFilters(u) {
       const q = $('#search').value.trim().toLowerCase();
-      const fWeb = $('#fltWebinar').checked, fProp = $('#fltProperty').checked, fPaid = $('#fltPaid').checked;
+      const fWeb = $('#fltWebinar').checked, fProp = $('#fltProperty').checked, fPaid = $('#fltPaid').checked, fCourses = $('#fltCourses').checked;
       const fBooked = $('#fltBooked').checked, fConverted = $('#fltConverted').checked, fCancelled = $('#fltCancelled').checked;
       if (q && !((u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q))) return false;
       if (fWeb && !u.hasWebinar) return false;
       if (fProp && u.properties.size === 0) return false;
       if (fPaid && !((u.csv?.total || 0) >= 2388)) return false;
+      if (fCourses && u.courses.size === 0) return false;
       if (fBooked && !userHasBooking(u, 'book')) return false;
       if (fConverted && !userHasBooking(u, 'convert')) return false;
       if (fCancelled && !userHasBooking(u, 'cancel')) return false;
@@ -2504,7 +2502,6 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
         const filtersRow = $('#filtersRow');
         if (filtersRow) {
           filtersRow.style.display = 'flex';
-          // If individual filter chips are also being hidden, unhide them too:
           $$('#filtersRow .chip').forEach(el => el.style.display = 'inline-flex');
         }
         $$('#userList .user').forEach(x => x.classList.remove('active'));
@@ -2778,16 +2775,12 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
           }
 
           try {
-            // 2. CALL THE API DELETION FUNCTION
-            // We reuse the logic from the global deleteItem, but execute it here.
             const apiUrl = `https://behav.ai/api/store-insight-temp/${id}`;
 
             const response = await fetch(apiUrl, {
               method: 'DELETE',
               headers: {
                 'Content-Type': 'application/json',
-                // IMPORTANT: Include your Laravel security headers here (e.g., CSRF Token)
-                // Example: 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content 
               }
             });
 
@@ -2796,13 +2789,6 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
               throw new Error(err.message || `Server error during deletion. Status: ${response.status}`);
             }
 
-            // 3. SUCCESS: Update the UI by re-rendering based on fresh data
-            // NOTE: The server-side deletion is done. Now we re-render everything
-            // (The global actionsByEmail temporary cache is removed/updated 
-            // implicitly when renderInsightTable and renderGlobalTodo refetch data).
-
-            // This assumes renderInsightTable and renderGlobalTodo are now ASYNC 
-            // and fetch fresh data from the API as previously discussed.
             if (typeof actionsByEmail === 'object' && actionsByEmail[email]) {
               actionsByEmail[email] = actionsByEmail[email].filter(x => x.id !== id);
             }
@@ -2834,7 +2820,6 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
       // Ensure all fields are being populated correctly, using item.id from the edit button handler
       $('#fLeadDisplay').value = `${selected.name || selected.email} (${selected.email})`;
 
-      // Note: item.tab_context may contain the context if retrieved from the API
       $('#fTab').value = item.tab_context || item.tab || 'insight';
 
       $('#fInsight').value = item.insight || '';
@@ -2965,7 +2950,6 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
       // Original card view for dashboard
       const rows = [];
 
-      // **CRITICAL CHANGE: Use the locally fetched data structure**
       for (const [email, items] of Object.entries(currentActionsByEmail)) {
         const lead = profiles[email]; // profiles is assumed to be a global object that is loaded on init
         (items || []).forEach(it => {
@@ -3321,7 +3305,7 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
         $('#zwTo').value = $('#zwTo').value || ymd(new Date());
         // Try cache first
         if (loadCacheIfMatch()) {
-          updateMetrics(); // It's good practice to update metrics after cache load too
+          updateMetrics(); 
           renderUserList();
         } else {
           overlayStatus('Loading PropertyLab…');
@@ -3410,14 +3394,14 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
           return;
         }
 
-        // ✅ Sort messages oldest → newest
+        // Sort messages oldest → newest
         const ordered = [...messages].sort((a, b) => {
           const ta = new Date(a.timestamp || a.createdAt || 0).getTime();
           const tb = new Date(b.timestamp || b.createdAt || 0).getTime();
           return ta - tb;
         });
 
-        // ✅ Render messages (incoming vs outgoing styles)
+        // Render messages (incoming vs outgoing styles)
         ordered.forEach(msg => {
           const isOutgoing = msg.direction === 'outgoing' || msg.fromMe === true;
 
@@ -3454,7 +3438,7 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
           container.appendChild(wrapper);
         });
 
-        // ✅ Always scroll to bottom smoothly
+        // Always scroll to bottom smoothly
         container.scrollTo({
           top: container.scrollHeight,
           behavior: 'smooth',
@@ -3548,7 +3532,6 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
 
 
     document.getElementById('waSend').addEventListener('click', sendWAMessage);
-    // Global event delegation — works even if the button is re-rendered
     document.addEventListener('click', e => {
       const refreshButton = e.target.closest('#btnWARefresh');
       if (refreshButton) {
@@ -3663,12 +3646,9 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
       formData.append('csv_file', file);
 
       try {
-        // **IMPORTANT**: Ensure this URL matches your Laravel route (e.g., in routes/api.php)
         const response = await fetch('https://behav.ai/api/csv/upload', {
           method: 'POST',
           body: formData,
-          // If you are using a standard web route, you must include the CSRF token
-          // headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content } 
         });
 
         const result = await response.json();
@@ -3744,7 +3724,6 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
 
         if (response.ok) {
 
-          // --- START FRONTEND PROCESSING LOGIC ---
 
           const rawCsvText = result.csv_content;
 
@@ -3753,19 +3732,15 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
             return;
           }
 
-          // 1. CREATE MOCK FILE OBJECT
-          // This object mimics the File API's text() method, which your parser expects.
           const mockFile = {
             // Returns the content directly as a resolved promise
             text: async () => rawCsvText
           };
 
-          // 2. PASS MOCK OBJECT TO PARSER
-          // Your existing functions handle the parsing and data manipulation (parseCSVFile, mergeCSVIntoProfiles).
-          // We pass the mockFile object (which has the .text() method) to keep parseCSVFile working.
+
           await blocking(() => parseCSVFile(mockFile), 'Importing CSV and matching…');
 
-          // 3. UPDATE UI AND STATE
+
           mergeCSVIntoProfiles();
           updateMetrics();
           renderUserList();
@@ -3787,9 +3762,6 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
 
     // Load files when the page loads
     loadStoredCsvFiles();
-
-    // After a successful upload, call loadStoredCsvFiles() again to refresh the list
-    // (You would add this to the success block of your upload script)
 
   </script>
 </body>

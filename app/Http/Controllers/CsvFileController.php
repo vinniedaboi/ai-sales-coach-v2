@@ -8,9 +8,6 @@ use App\Models\CsvFile; // Import the model
 
 class CsvFileController extends Controller
 {
-    // =========================================================
-    // 1. UPLOAD AND STORE (Called by your frontend JS)
-    // =========================================================
     public function upload(Request $request)
     {
         // 1. Validation: Ensures it's a file and a valid type
@@ -20,15 +17,12 @@ class CsvFileController extends Controller
 
         // 2. Storage
         try {
-            // Store the file in storage/app/csv_uploads (or storage/app/public/csv_uploads if you uncomment the disk)
-            // Storing on the default 'local' disk is most secure for private data.
             $path = $request->file('csv_file')->store('csv_uploads');
 
             // 3. Database Record
             CsvFile::create([
                 'original_name' => $request->file('csv_file')->getClientOriginalName(),
                 'stored_path' => $path, // e.g., 'csv_uploads/randomfilename.csv'
-                // 'user_id' => auth()->id(), // Uncomment if using authentication
             ]);
 
             return response()->json([
@@ -44,24 +38,12 @@ class CsvFileController extends Controller
         }
     }
 
-    // =========================================================
-    // 2. RETRIEVE FILE LIST (For the dropdown menu)
-    // =========================================================
     public function listFiles()
     {
-        // Retrieve all files stored in the database
         $files = CsvFile::orderBy('created_at', 'desc')->get();
-
-        // Pass the list to the view (or return as JSON if you are using an API for the selection page)
         return response()->json($files);
-        
-        // For a JSON API endpoint to populate the dropdown via AJAX:
-        // return response()->json($files);
     }
 
-    // app/Http/Controllers/CsvFileController.php
-
-// app/Http/Controllers/CsvFileController.php
 
 public function processSelectedFile(Request $request)
 {
@@ -74,19 +56,17 @@ public function processSelectedFile(Request $request)
     }
 
     try {
-        // 2. Retrieve the ENTIRE file content as a string
         $fileContent = Storage::get($storedPath);
         
-        // 3. Return the raw content for frontend processing
         return response()->json([
             'message' => 'File content retrieved successfully for frontend processing.',
-            // CRUCIAL: Send the raw text content back to the client
+
             'csv_content' => $fileContent, 
             'path' => $storedPath
         ], 200);
 
     } catch (\Exception $e) {
-        // Server failed to read the file, but not due to bad logic
+
         return response()->json([
             'message' => 'FATAL ERROR: Could not read file content from storage.',
             'error_detail' => $e->getMessage(),
