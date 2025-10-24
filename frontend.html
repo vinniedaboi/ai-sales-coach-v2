@@ -2482,7 +2482,6 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
             ${u.hasWebinar ? '<span class="badge b-webinar">Webinar</span>' : ''}
             ${u.properties.size ? '<span class="badge b-prop">Property</span>' : ''}
             ${u.courses.size ? '<span class="badge b-course">Courses</span>' : ''} ${(u.csv?.total || 0) >= 2388 ? '<span class="badge" style="background:#fff7ed;color:#9a3412">Paid ≥ 2388</span>' : ''}
-            ${(u.csv?.total || 0) >= 2388 ? '<span class="badge" style="background:#fff7ed;color:#9a3412">Paid ≥ 2388</span>' : ''}
             ${userHasBooking(u, 'book') ? '<span class="badge" style="background:#e0f2fe;color:#075985">Booked</span>' : ''}
             ${userHasBooking(u, 'convert') ? '<span class="badge" style="background:#dcfce7;color:#166534">Converted</span>' : ''}
             ${userHasBooking(u, 'cancel') ? '<span class="badge" style="background:#fee2e2;color:#991b1b">Cancelled</span>' : ''}
