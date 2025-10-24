@@ -2481,6 +2481,7 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
           <div style="margin-top:6px">
             ${u.hasWebinar ? '<span class="badge b-webinar">Webinar</span>' : ''}
             ${u.properties.size ? '<span class="badge b-prop">Property</span>' : ''}
+            ${u.courses.size ? '<span class="badge b-course">Courses</span>' : ''} ${(u.csv?.total || 0) >= 2388 ? '<span class="badge" style="background:#fff7ed;color:#9a3412">Paid ≥ 2388</span>' : ''}
             ${(u.csv?.total || 0) >= 2388 ? '<span class="badge" style="background:#fff7ed;color:#9a3412">Paid ≥ 2388</span>' : ''}
             ${userHasBooking(u, 'book') ? '<span class="badge" style="background:#e0f2fe;color:#075985">Booked</span>' : ''}
             ${userHasBooking(u, 'convert') ? '<span class="badge" style="background:#dcfce7;color:#166534">Converted</span>' : ''}
@@ -3235,30 +3236,127 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
 
     function saveCache() {
       try {
-        const payload = {
-          _meta: { key: buildCacheKey(), ts: new Date().toISOString() },
-          profiles, allActivities, webinarByEmail, csvPurchasesByEmail, bookingsByEmail,
-          actionsByEmail, opportunityByEmail,
+        // convert Map -> object
+        const mapToObj = map =>
+          map instanceof Map
+            ? Object.fromEntries(map)
+            : (typeof map === 'object' ? map : {});
+
+        // convert Set -> array
+        const setToArray = set =>
+          set instanceof Set ? Array.from(set) : (Array.isArray(set) ? set : []);
+
+        // prepare profiles for saving
+        const profilesObj = {};
+        Object.entries(profiles || {}).forEach(([email, u]) => {
+          profilesObj[email] = {
+            ...u,
+            properties: setToArray(u.properties),
+            webinars: setToArray(u.webinars),
+            courses: u.courses instanceof Map
+              ? Object.fromEntries(
+                Array.from(u.courses.entries()).map(([courseName, courseObj]) => [
+                  courseName,
+                  { ...courseObj, lessons: setToArray(courseObj.lessons) },
+                ])
+              )
+              : {},
+          };
+        });
+
+        // build cache object
+        const cache = {
+          _meta: { ts: Date.now(), key: buildCacheKey() },
+          profiles: profilesObj,
+          allActivities: allActivities || [],
+          webinarByEmail: mapToObj(webinarByEmail),
+          csvPurchasesByEmail: mapToObj(csvPurchasesByEmail),
+          bookingsByEmail: mapToObj(bookingsByEmail),
+          actionsByEmail: mapToObj(actionsByEmail),
+          opportunityByEmail: mapToObj(opportunityByEmail),
           prefs: {
-            plBase: $('#plBase')?.value || '', plKey: $('#plKey')?.value || '',
-            zwUrl: $('#zwUrl')?.value || '', zwHost: $('#zwHost')?.value || '',
-            zwFrom: $('#zwFrom')?.value || '', zwTo: $('#zwTo')?.value || '',
-            assigneeList: $('#assigneeList')?.value || 'Zen Chua, Jun Bin, Wai Kit, Admin Support'
-          }
+            plBase: $('#plBase').value,
+            plKey: $('#plKey').value,
+            zwUrl: $('#zwUrl').value,
+            zwHost: $('#zwHost').value,
+            zwFrom: $('#zwFrom').value,
+            zwTo: $('#zwTo').value,
+            assigneeList: $('#assigneeList').value,
+          },
         };
-        localStorage.setItem(CACHE_KEY, JSON.stringify(payload));
-        $('#cacheInfo').textContent = `Saved cache at ${new Date().toLocaleString()}`;
-        $('#lastSaved').textContent = `Saved cache at ${new Date().toLocaleString()}`;
-      } catch (e) { $('#cacheInfo').textContent = 'Cache save failed'; }
+
+        // save to localStorage
+        localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+
+        // update UI
+        const ts = new Date(cache._meta.ts).toLocaleString();
+        $('#cacheInfo').textContent = `Cache saved at ${ts}`;
+        $('#lastSaved').textContent = `Cache saved at ${ts}`;
+        toast('Cache saved successfully');
+      } catch (e) {
+        console.error('Failed to save cache:', e);
+        toast('❌ Failed to save cache');
+      }
     }
 
     function loadCacheIfMatch() {
       try {
-        const raw = localStorage.getItem(CACHE_KEY); if (!raw) { $('#cacheInfo').textContent = 'No cache found'; return false; }
+        const raw = localStorage.getItem(CACHE_KEY);
+        if (!raw) {
+          $('#cacheInfo').textContent = 'No cache found';
+          return false;
+        }
+
         const data = JSON.parse(raw);
-        if (data?._meta?.key !== buildCacheKey()) { $('#cacheInfo').textContent = 'Cache exists but settings changed'; return false; }
-        profiles = data.profiles || {}; allActivities = data.allActivities || []; webinarByEmail = data.webinarByEmail || {}; csvPurchasesByEmail = data.csvPurchasesByEmail || {}; bookingsByEmail = data.bookingsByEmail || {};
-        actionsByEmail = data.actionsByEmail || {}; opportunityByEmail = data.opportunityByEmail || {};
+        if (data?._meta?.key !== buildCacheKey()) {
+          $('#cacheInfo').textContent = 'Cache exists but settings changed';
+          return false;
+        }
+
+        // helper functions
+        const toMap = obj => (!obj || typeof obj !== 'object') ? new Map() : new Map(Object.entries(obj));
+        const toSet = arr => (!arr) ? new Set() : new Set(Array.isArray(arr) ? arr : Object.values(arr));
+
+        // rebuild profiles
+        profiles = {};
+        Object.entries(data.profiles || {}).forEach(([email, u]) => {
+          u.properties = toSet(u.properties);
+          u.webinars = toSet(u.webinars);
+
+          const coursesMap = new Map();
+          if (u.courses && typeof u.courses === 'object') {
+            Object.entries(u.courses).forEach(([courseName, courseObj]) => {
+              const restored = { ...courseObj, lessons: toSet(courseObj.lessons) };
+              coursesMap.set(courseName, restored);
+            });
+          }
+          u.courses = coursesMap;
+
+          profiles[email] = u;
+        });
+
+        // rebuild maps
+        allActivities = data.allActivities || [];
+        webinarByEmail = toMap(data.webinarByEmail);
+        csvPurchasesByEmail = toMap(data.csvPurchasesByEmail);
+        bookingsByEmail = toMap(data.bookingsByEmail);
+        actionsByEmail = toMap(data.actionsByEmail);
+        opportunityByEmail = toMap(data.opportunityByEmail);
+
+        // rebuild computed flags
+        Object.values(profiles).forEach(u => {
+          const email = u.email;
+          const bookings = bookingsByEmail.get(email) || [];
+
+          u.booked = bookings.some(b => /book/i.test(b.status || ''));
+          u.converted = bookings.some(b => /convert/i.test(b.status || ''));
+          u.cancelled = bookings.some(b => /cancel/i.test(b.status || ''));
+
+          u.hasProperty = u.properties instanceof Set && u.properties.size > 0;
+          u.hasCourses = u.courses instanceof Map && u.courses.size > 0;
+        });
+
+        // restore preferences
         if (data.prefs) {
           $('#plBase').value = data.prefs.plBase || $('#plBase').value;
           $('#plKey').value = data.prefs.plKey || $('#plKey').value;
@@ -3268,14 +3366,33 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
           $('#zwTo').value = data.prefs.zwTo || $('#zwTo').value;
           $('#assigneeList').value = data.prefs.assigneeList || $('#assigneeList').value;
         }
-        $('#cacheInfo').textContent = `Loaded cache from ${new Date(data._meta.ts).toLocaleString()}`;
-        $('#lastSaved').textContent = `Loaded cache from ${new Date(data._meta.ts).toLocaleString()}`;
-        updateMetrics(); renderUserList(); renderGlobalTodo(false); renderGlobalTodo(true);
+
+        // update global refs
+        window.users = Object.values(profiles);
+
+        // update UI
+        const ts = new Date(data._meta.ts).toLocaleString();
+        $('#cacheInfo').textContent = `Loaded cache from ${ts}`;
+        $('#lastSaved').textContent = `Loaded cache from ${ts}`;
+
+        updateMetrics();
+        renderUserList();
+        renderGlobalTodo(false);
+        renderGlobalTodo(true);
         ensureFiltersVisible();
-        const first = $('#userList .user'); if (first) first.click();
         updateAssigneeDropdown();
+
+        const first = $('#userList .user');
+        if (first) first.click();
+
+        toast('✅ Cache loaded successfully');
         return true;
-      } catch (e) { $('#cacheInfo').textContent = 'Cache load failed'; return false; }
+      } catch (e) {
+        console.error('Cache load failed:', e);
+        $('#cacheInfo').textContent = 'Cache load failed';
+        toast('❌ Cache load failed');
+        return false;
+      }
     }
 
     function ensureFiltersVisible() {
@@ -3305,7 +3422,7 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
         $('#zwTo').value = $('#zwTo').value || ymd(new Date());
         // Try cache first
         if (loadCacheIfMatch()) {
-          updateMetrics(); 
+          updateMetrics();
           renderUserList();
         } else {
           overlayStatus('Loading PropertyLab…');
