@@ -910,6 +910,17 @@
     </div>
 
     <div class="section">
+      <h4>Update Phone Numbers</h4>
+      <label for="phoneCsvInput">Upload CSV (must have 'email' and 'phone' columns)</label>
+      <input type="file" id="phoneCsvInput" accept=".csv,text/csv" />
+      <button id="btnProcessPhoneCsv" class="secondary" style="margin-top:8px">
+        <i class="fa-solid fa-upload"></i> Process Phone CSV
+      </button>
+    </div>
+
+    <div class="section">
+
+    <div class="section">
       <h4>Cache</h4>
       <button id="btnUseCache" class="secondary">Use cached data</button>
       <button id="btnClearCache" class="secondary" style="margin-top:6px">Clear cache</button>
@@ -1452,7 +1463,7 @@
       </div>
     </div>
   </div>
-
+  
   <script>
     /* ======== UTILITIES ======== */
     const $ = s => document.querySelector(s);
@@ -3876,8 +3887,83 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
       }
     });
 
-    // Load files when the page loads
+
     loadStoredCsvFiles();
+
+    async function processPhoneCSV() {
+      const inputElement = document.getElementById('phoneCsvInput');
+      const f = inputElement && inputElement.files && inputElement.files[0];
+      if (!f) {
+        toast('Please select a phone CSV file first.', true);
+        return;
+      }
+
+      let txt;
+      try {
+        txt = await f.text();
+      } catch (e) {
+        toast('Failed to read file: ' + e.message, true);
+        return;
+      }
+
+      const rows = parseCSV(txt); 
+      if (rows.length < 2) {
+        toast('CSV is empty or has no data rows.', true);
+        return;
+      }
+
+      const header = rows[0].map(h => String(h || '').trim().toLowerCase());
+      
+      const iEmail = header.indexOf('email');
+      
+
+      let iPhone = -1;
+      const phoneHeaders = ['phone', 'phone number', 'mobile'];
+      for (const h of phoneHeaders) {
+        if (header.indexOf(h) > -1) {
+          iPhone = header.indexOf(h);
+          break;
+        }
+      }
+
+      if (iEmail < 0) {
+        toast('CSV missing "email" column.', true);
+        return;
+      }
+      if (iPhone < 0) {
+        toast('CSV missing "phone", "phone number", or "mobile" column.', true);
+        return;
+      }
+
+      let updatedCount = 0;
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        const email = (row[iEmail] || '').trim().toLowerCase();
+        const phone = (row[iPhone] || '').trim();
+
+
+        if (email && phone && profiles[email]) {
+          // Only update if the phone number is new or different
+          if (profiles[email].phone !== phone) {
+            profiles[email].phone = phone;
+            updatedCount++;
+          }
+        }
+      }
+
+      if (updatedCount > 0) {
+        toast(`Successfully updated ${updatedCount} phone numbers.`);
+        saveCache(); // Save the changes to local storage
+
+        if (selected && profiles[selected.email]?.phone === profiles[selected.email].phone) {
+          renderSelected();
+        }
+      } else {
+        toast('No new phone numbers were found or matched.');
+      }
+    }
+
+    $('#btnProcessPhoneCsv').addEventListener('click', processPhoneCSV);
 
   </script>
 </body>
