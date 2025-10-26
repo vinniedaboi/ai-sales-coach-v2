@@ -35,4 +35,22 @@ return [
         ],
     ],
 
+    // config/services.php
+
+'google' => [
+    'client_id' => env('GOOGLE_CLIENT_ID'),
+    'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+    'redirect' => env('GOOGLE_REDIRECT_URI'),
+    // IMPORTANT: Define the scopes needed for reading and sending Gmail
+    'scopes' => [
+        'https://www.googleapis.com/auth/userinfo.email', // Basic scope
+        'https://www.googleapis.com/auth/gmail.readonly', 
+        'https://www.googleapis.com/auth/gmail.send',
+    ],
+    'with' => [
+        'access_type' => 'offline', // Ensures a refresh token is provided
+        'prompt' => 'consent',      // Forces consent screen to ensure refresh token is provided
+    ],
+],
+
 ];
