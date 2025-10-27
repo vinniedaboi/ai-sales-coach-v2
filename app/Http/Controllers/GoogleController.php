@@ -170,43 +170,59 @@ public function redirectToGoogle(Request $req)
      * Step 3: Fetch user’s Gmail messages
      */
     public function getEmails(Request $req)
-    {
-        $user = $this->getUserFromJWT($req);
-        if (!$user) return response()->json(['error' => 'Unauthenticated'], 401);
+{
+    $user = $this->getUserFromJWT($req);
+    if (!$user) {
+        return response()->json(['error' => 'Unauthenticated'], 401);
+    }
 
-        $accessToken = $this->getValidAccessToken($user);
-        if (!$accessToken) return response()->json(['error' => 'Gmail not connected'], 401);
+    $leadEmail = $req->query('email');
+    if (!$leadEmail) {
+        return response()->json(['error' => 'Missing lead email'], 400);
+    }
 
-        $client = $this->getGoogleClient();
-        $client->setAccessToken($accessToken);
-        $service = new Gmail($client);
+    $accessToken = $this->getValidAccessToken($user);
+    if (!$accessToken) {
+        return response()->json(['error' => 'Gmail not connected'], 401);
+    }
 
-        try {
-            $list = $service->users_messages->listUsersMessages('me', ['maxResults' => 10]);
-            $messages = [];
+    // Initialize Google client
+    $client = $this->getGoogleClient();
+    $client->setAccessToken($accessToken);
 
-            foreach ($list->getMessages() as $m) {
-                $msg = $service->users_messages->get('me', $m->getId(), ['format' => 'metadata']);
-                $headers = collect($msg->getPayload()->getHeaders())
-                    ->whereIn('name', ['From', 'Subject', 'Date'])
-                    ->pluck('value', 'name')
-                    ->toArray();
+    $service = new Gmail($client);
 
-                $messages[] = [
-                    'id' => $m->getId(),
-                    'from' => $headers['From'] ?? '(Unknown)',
-                    'subject' => $headers['Subject'] ?? '(No subject)',
-                    'date' => $headers['Date'] ?? '',
-                    'snippet' => $msg->getSnippet(),
-                ];
-            }
+    // ✅ Use Gmail's "q" search parameter (same as Gmail web search)
+    // This finds messages where the leadEmail appears in either to/from/cc/bcc
+    $query = "from:{$leadEmail} OR to:{$leadEmail}";
 
-            return response()->json($messages);
-        } catch (\Exception $e) {
-            Log::error("Gmail fetch failed: " . $e->getMessage());
-            return response()->json(['error' => 'Failed to fetch emails'], 500);
+    $response = $service->users_messages->listUsersMessages('me', [
+        'maxResults' => 10,
+        'q' => $query,
+    ]);
+
+    $messages = [];
+
+    if ($response->getMessages()) {
+        foreach ($response->getMessages() as $msg) {
+            $fullMessage = $service->users_messages->get('me', $msg->getId(), ['format' => 'metadata', 'metadataHeaders' => ['Subject', 'From', 'Date']]);
+
+            $headers = collect($fullMessage->getPayload()->getHeaders())
+                ->mapWithKeys(fn($h) => [$h->getName() => $h->getValue()]);
+
+            $messages[] = [
+                'id' => $msg->getId(),
+                'subject' => $headers['Subject'] ?? '(No Subject)',
+                'from' => $headers['From'] ?? '',
+                'date' => $headers['Date'] ?? '',
+                'snippet' => $fullMessage->getSnippet(),
+            ];
         }
     }
+
+    return response()->json($messages);
+}
+
 
     /**
      * Step 4: Send an email via Gmail API

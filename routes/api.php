@@ -35,3 +35,4 @@ Route::get('/google/redirect', [GoogleController::class, 'redirectToGoogle']);
 Route::get('/google/callback', [GoogleController::class, 'handleCallback']);
 Route::get('/google/emails', [GoogleController::class, 'getEmails']);
 Route::post('/google/disconnect', [GoogleController::class, 'disconnect']);
+Route::post('/google/send', [GoogleController::class, 'sendEmail']);
