@@ -1328,20 +1328,19 @@
                   class="fa-brands fa-whatsapp"></i> Send</button>
             </div>
           </div>
-          <div class="panel" id="p-email">
-  <div style="font-weight:900;margin-bottom:10px;">Lead Email Communication (Outlook)</div>
+      <div class="panel" id="p-email">
+  <div style="font-weight:900;margin-bottom:10px;">Lead Email Communication (Gmail)</div>
 
-  <div id="outlookStatusSection"
-    style="margin-bottom:15px; padding:10px; border-radius:8px; border:1px solid var(--border); background:#f0f9ff;">
-    <div id="outlookConnectionMessage" class="muted" style="margin-bottom:8px;">
-      You need to connect your Microsoft Outlook account to read and send emails.
+  <div id="gmailStatusSection"
+    style="margin-bottom:15px; padding:10px; border-radius:8px; border:1px solid var(--border); background:#f0fff4;">
+    <div id="gmailConnectionMessage" class="muted" style="margin-bottom:8px;">
+      You need to connect your Google account to read and send emails.
     </div>
-    <a href="/api/auth/outlook" target="_blank" id="btnConnectOutlook" class="primary"
-      style="width:auto; display:inline-block; text-decoration:none;">
-      <i class="fa-brands fa-microsoft"></i> Connect Outlook
-    </a>
-    <button id="btnDisconnectOutlook" class="secondary" style="width:auto; display:none; margin-left:8px;">
-      Disconnect Outlook
+   <button id="btnConnectGoogle" class="primary" style="width:auto; display:inline-block;">
+  <i class="fa-brands fa-google"></i> Connect Gmail
+</button>
+    <button id="btnDisconnectGoogle" class="secondary" style="width:auto; display:none; margin-left:8px;">
+      Disconnect Gmail
     </button>
   </div>
 
@@ -1354,7 +1353,7 @@
 
   <div id="emailHistory" style="max-height: 400px; overflow-y: auto; margin-top:10px;">
     <div class="muted" style="text-align:center;padding:20px;">
-      Connect Outlook and click "Load/Refresh History" to view emails.
+      Connect Gmail and click “Load/Refresh History” to view emails.
     </div>
   </div>
 
@@ -1373,6 +1372,7 @@
     </button>
   </form>
 </div>
+
           <div class="panel" id="p-coach">
             <div class="coach-grid"
               style="display:grid;grid-template-columns:minmax(260px,360px) 1fr;gap:14px;height:100%">
@@ -3048,7 +3048,8 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
       const cont = full ? $('#todoListFull') : $('#todoList');
 
       // **FIX: Safely exit if the required container element is missing**
-      let currentActionsByEmail = {};
+      let currentActionsByEmail = {}
+      ;
       if (!full) {
         try {
           const response = await fetch('https://behav.ai/api/get-insights-temp');
@@ -3057,9 +3058,12 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
             throw new Error('Failed to fetch insights from temporary storage.');
           }
           const allInsights = await response.json();
+          const insightsArray = Array.isArray(allInsights)
+  ? allInsights
+  : Object.values(allInsights);
 
           // Transform the flat array of items from the API into the nested object structure
-          allInsights.forEach(item => {
+          insightsArray.forEach(item => {
             const email = item.user_email;
             if (!currentActionsByEmail[email]) {
               currentActionsByEmail[email] = [];
@@ -4115,7 +4119,133 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
     }
 
     $('#btnProcessPhoneCsv').addEventListener('click', processPhoneCSV);
- 
+    const connectGoogleBtn = document.getElementById("btnConnectGoogle");
+const disconnectGoogleBtn = document.getElementById("btnDisconnectGoogle");
+const refreshEmailsBtn = document.getElementById("btnEmailRefresh");
+const gmailMessage = document.getElementById("gmailConnectionMessage");
+const emailHistory = document.getElementById("emailHistory");
+const emailForm = document.getElementById("emailComposeForm");
+
+// Update Gmail section UI
+function updateGmailUI(connected) {
+  if (connected) {
+    gmailMessage.textContent = "✅ Connected to Gmail. You can now read and send emails.";
+    connectGoogleBtn.style.display = "none";
+    disconnectGoogleBtn.style.display = "inline-block";
+  } else {
+    gmailMessage.textContent =
+      "You need to connect your Google account to read and send emails.";
+    connectGoogleBtn.style.display = "inline-block";
+    disconnectGoogleBtn.style.display = "none";
+  }
+}
+
+// Connect Gmail
+connectGoogleBtn.onclick = async () => {
+  const token = localStorage.getItem("auth_token");
+  if (!token) {
+    alert("Please log in first.");
+    return;
+  }
+
+  // Redirect to Google OAuth via backend
+  window.location.href = `/api/google/redirect?auth=${encodeURIComponent(
+    "Bearer " + token
+  )}`;
+};
+
+// Disconnect Gmail
+disconnectGoogleBtn.onclick = async () => {
+  const token = localStorage.getItem("auth_token");
+  if (!token) return alert("Please log in first.");
+
+  await fetch("/api/google/disconnect", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + token },
+  });
+
+  updateGmailUI(false);
+  emailHistory.innerHTML =
+    '<div class="muted" style="text-align:center;padding:20px;">Disconnected from Gmail.</div>';
+  alert("Disconnected from Gmail");
+};
+
+// Fetch recent emails
+refreshEmailsBtn.onclick = async () => {
+  const token = localStorage.getItem("auth_token");
+  if (!token) return alert("Please log in first.");
+
+  const res = await fetch("/api/google/emails", {
+    headers: { Authorization: "Bearer " + token },
+  });
+
+  const messages = await res.json();
+  if (res.status !== 200) {
+    console.error(messages);
+    alert(messages.error || "Failed to fetch Gmail messages.");
+    return;
+  }
+
+  renderEmails(messages);
+};
+
+// Render messages list
+function renderEmails(messages) {
+  if (!messages || !messages.length) {
+    emailHistory.innerHTML =
+      '<div class="muted" style="text-align:center;padding:20px;">No recent emails found.</div>';
+    return;
+  }
+
+  emailHistory.innerHTML = messages
+    .map(
+      (m) => `
+    <div style="padding:10px;border-bottom:1px solid var(--border);">
+      <div style="font-weight:600;">${m.subject}</div>
+      <div class="muted" style="font-size:0.9em;">${m.from} • ${m.date}</div>
+      <div style="margin-top:5px;">${m.snippet}</div>
+    </div>`
+    )
+    .join("");
+}
+
+// Compose + send email
+emailForm.onsubmit = async (e) => {
+  e.preventDefault();
+  const token = localStorage.getItem("auth_token");
+  if (!token) return alert("Please log in first.");
+
+  const to = document.getElementById("emailTo").value;
+  const subject = document.getElementById("emailSubject").value;
+  const body = document.getElementById("emailBody").value;
+
+  const res = await fetch("/api/google/send", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + token,
+    },
+    body: JSON.stringify({ to, subject, body }),
+  });
+
+  const data = await res.json();
+  if (res.status === 200) {
+    alert("✅ Email sent successfully!");
+    emailForm.reset();
+  } else {
+    console.error(data);
+    alert("❌ Failed to send email: " + (data.error || "Unknown error"));
+  }
+};
+
+// Detect connection success after callback redirect
+if (window.location.search.includes("google=connected")) {
+  updateGmailUI(true);
+  alert("✅ Gmail connected successfully!");
+  history.replaceState({}, document.title, "/");
+} else {
+  updateGmailUI(false);
+}
 </script>
 </body>
 

@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AIController;
 use App\Http\Controllers\TemporaryInsightController;
 use App\Http\Controllers\CsvFileController;
+use App\Http\Controllers\GoogleController;
 
 Route::post('/session/start', [AIController::class, 'startSession']);
 Route::post('/chat', [AIController::class, 'chat']);
@@ -28,3 +29,9 @@ use App\Http\Controllers\AuthController;
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::get('/me', [AuthController::class, 'me']);
+
+
+Route::get('/google/redirect', [GoogleController::class, 'redirectToGoogle']);
+Route::get('/google/callback', [GoogleController::class, 'handleCallback']);
+Route::get('/google/emails', [GoogleController::class, 'getEmails']);
+Route::post('/google/disconnect', [GoogleController::class, 'disconnect']);
