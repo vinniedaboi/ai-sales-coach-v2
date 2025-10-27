@@ -55,9 +55,6 @@ class GoogleController extends Controller
         return $client;
     }
 
-    /**
-     * Step 1: Redirect to Google OAuth consent page
-     */
 public function redirectToGoogle(Request $req)
 {
     $authHeader = $req->header('Authorization') ?? $req->query('auth');
@@ -99,9 +96,7 @@ public function redirectToGoogle(Request $req)
 
 
 
-    /**
-     * Step 2: Handle Google OAuth callback
-     */
+
     public function handleCallback(Request $req)
     {
         $client = $this->getGoogleClient();
@@ -166,9 +161,7 @@ public function redirectToGoogle(Request $req)
         return $user->google_access_token;
     }
 
-    /**
-     * Step 3: Fetch user’s Gmail messages
-     */
+
     public function getEmails(Request $req)
 {
     $user = $this->getUserFromJWT($req);
@@ -192,7 +185,7 @@ public function redirectToGoogle(Request $req)
 
     $service = new Gmail($client);
 
-    // ✅ Use Gmail's "q" search parameter (same as Gmail web search)
+
     // This finds messages where the leadEmail appears in either to/from/cc/bcc
     $query = "from:{$leadEmail} OR to:{$leadEmail}";
 
@@ -224,50 +217,76 @@ public function redirectToGoogle(Request $req)
 }
 
 
-    /**
-     * Step 4: Send an email via Gmail API
-     */
     public function sendEmail(Request $req)
-    {
-        $user = $this->getUserFromJWT($req);
-        if (!$user) return response()->json(['error' => 'Unauthenticated'], 401);
+{
+    $user = $this->getUserFromJWT($req);
+    if (!$user) return response()->json(['error' => 'Unauthenticated'], 401);
 
-        $accessToken = $this->getValidAccessToken($user);
-        if (!$accessToken) return response()->json(['error' => 'Gmail not connected'], 401);
+    $accessToken = $this->getValidAccessToken($user);
+    if (!$accessToken) return response()->json(['error' => 'Gmail not connected'], 401);
 
-        $req->validate([
-            'to' => 'required|email',
-            'subject' => 'required|string',
-            'body' => 'required|string',
-        ]);
+    $req->validate([
+        'to' => 'required|email',
+        'subject' => 'required|string',
+        'body' => 'required|string',
+        'attachments.*' => 'file|max:5120', // 5MB max per file
+    ]);
 
-        $client = $this->getGoogleClient();
-        $client->setAccessToken($accessToken);
-        $service = new Gmail($client);
+    $client = $this->getGoogleClient();
+    $client->setAccessToken($accessToken);
+    $service = new Gmail($client);
 
-        $rawMessage = "To: {$req->to}\r\n";
-        $rawMessage .= "Subject: {$req->subject}\r\n";
-        $rawMessage .= "MIME-Version: 1.0\r\n";
-        $rawMessage .= "Content-Type: text/html; charset=utf-8\r\n\r\n";
-        $rawMessage .= $req->body;
+    $boundary = uniqid('np');
 
-        $encodedMessage = base64_encode($rawMessage);
-        $encodedMessage = str_replace(['+', '/', '='], ['-', '_', ''], $encodedMessage);
+    // HTML + plain text version
+    $plainTextBody = strip_tags($req->body);
+    $htmlBody = $req->body; 
 
-        try {
-            $message = new Gmail\Message();
-            $message->setRaw($encodedMessage);
-            $service->users_messages->send('me', $message);
-            return response()->json(['message' => 'Email sent successfully']);
-        } catch (\Exception $e) {
-            Log::error("Gmail send failed: " . $e->getMessage());
-            return response()->json(['error' => 'Failed to send email'], 500);
+    $rawMessage = "To: {$req->to}\r\n";
+    $rawMessage .= "Subject: {$req->subject}\r\n";
+    $rawMessage .= "MIME-Version: 1.0\r\n";
+    $rawMessage .= "Content-Type: multipart/mixed; boundary=\"$boundary\"\r\n\r\n";
+    $rawMessage .= "--$boundary\r\n";
+    $rawMessage .= "Content-Type: multipart/alternative; boundary=\"alt-$boundary\"\r\n\r\n";
+    $rawMessage .= "--alt-$boundary\r\n";
+    $rawMessage .= "Content-Type: text/plain; charset=UTF-8\r\n\r\n";
+    $rawMessage .= "$plainTextBody\r\n\r\n";
+    $rawMessage .= "--alt-$boundary\r\n";
+    $rawMessage .= "Content-Type: text/html; charset=UTF-8\r\n\r\n";
+    $rawMessage .= "$htmlBody\r\n\r\n";
+    $rawMessage .= "--alt-$boundary--\r\n";
+
+    // Attach files (if any)
+    if ($req->hasFile('attachments')) {
+        foreach ($req->file('attachments') as $file) {
+            $fileData = base64_encode(file_get_contents($file->getRealPath()));
+            $fileName = $file->getClientOriginalName();
+            $mimeType = $file->getMimeType();
+
+            $rawMessage .= "--$boundary\r\n";
+            $rawMessage .= "Content-Type: $mimeType; name=\"$fileName\"\r\n";
+            $rawMessage .= "Content-Disposition: attachment; filename=\"$fileName\"\r\n";
+            $rawMessage .= "Content-Transfer-Encoding: base64\r\n\r\n";
+            $rawMessage .= chunk_split($fileData, 76, "\r\n") . "\r\n";
         }
     }
 
-    /**
-     * Step 5: Disconnect Gmail (clear stored tokens)
-     */
+    $rawMessage .= "--$boundary--";
+
+    $encodedMessage = rtrim(strtr(base64_encode($rawMessage), '+/', '-_'), '=');
+
+    try {
+        $message = new \Google\Service\Gmail\Message();
+        $message->setRaw($encodedMessage);
+        $service->users_messages->send('me', $message);
+        return response()->json(['message' => 'Email sent successfully']);
+    } catch (\Exception $e) {
+        \Log::error("Gmail send failed: " . $e->getMessage());
+        return response()->json(['error' => 'Failed to send email'], 500);
+    }
+}
+
+
     public function disconnect(Request $req)
     {
         $user = $this->getUserFromJWT($req);
