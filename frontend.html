@@ -835,6 +835,18 @@
 </head>
 
 <body>
+  <div id="loginScreen" style="display:none; padding:40px; max-width:400px; margin:auto;">
+    <h2>Login to PropertyLab Dashboard</h2>
+    <input id="loginEmail" placeholder="Email" type="email"
+      style="width:100%;margin-bottom:8px;padding:10px;border:1px solid #ccc;border-radius:8px;">
+    <input id="loginPassword" placeholder="Password" type="password"
+      style="width:100%;margin-bottom:8px;padding:10px;border:1px solid #ccc;border-radius:8px;">
+    <button id="btnLogin"
+      style="width:100%;padding:10px;background:#2563eb;color:#fff;font-weight:bold;border:none;border-radius:8px;">Login</button>
+    <div id="loginMessage" style="margin-top:10px;color:black;font-weight:bold;"></div>
+  </div>
+
+
   <div class="settings-mask" id="settingsMask"></div>
   <div class="nav-mask" id="navMask"></div>
   <div class="action-mask" id="actionMask"></div>
@@ -923,6 +935,10 @@
       <button id="btnUseCache" class="secondary">Use cached data</button>
       <button id="btnClearCache" class="secondary" style="margin-top:6px">Clear cache</button>
       <div id="cacheInfo" class="muted" style="margin-top:6px">—</div>
+    </div>
+
+    <div class="section">
+      <button id="btnLogout" class="secondary">Logout</button>
     </div>
   </aside>
 
@@ -1313,40 +1329,50 @@
             </div>
           </div>
           <div class="panel" id="p-email">
-    <div style="font-weight:900;margin-bottom:10px;">Lead Email Communication</div>
+  <div style="font-weight:900;margin-bottom:10px;">Lead Email Communication (Outlook)</div>
 
-    <div id="gmailStatusSection" style="margin-bottom:15px; padding:10px; border-radius:8px; border:1px solid var(--border); background:#f0f9ff;">
-        <div id="gmailConnectionMessage" class="muted" style="margin-bottom:8px;">
-            You need to connect your organizational Gmail account to read and send emails.
-        </div>
-        <a href="/auth/gmail" target="_blank" id="btnConnectGmail" class="primary" style="width:auto; display:inline-block; text-decoration:none;"><i class="fa-brands fa-google"></i> Connect Gmail</a>
-        <button id="btnDisconnectGmail" class="secondary" style="width:auto; display:none; margin-left:8px;">Disconnect Gmail</button>
+  <div id="outlookStatusSection"
+    style="margin-bottom:15px; padding:10px; border-radius:8px; border:1px solid var(--border); background:#f0f9ff;">
+    <div id="outlookConnectionMessage" class="muted" style="margin-bottom:8px;">
+      You need to connect your Microsoft Outlook account to read and send emails.
     </div>
+    <a href="/api/auth/outlook" target="_blank" id="btnConnectOutlook" class="primary"
+      style="width:auto; display:inline-block; text-decoration:none;">
+      <i class="fa-brands fa-microsoft"></i> Connect Outlook
+    </a>
+    <button id="btnDisconnectOutlook" class="secondary" style="width:auto; display:none; margin-left:8px;">
+      Disconnect Outlook
+    </button>
+  </div>
 
-    <div style="font-weight:900; border-bottom:1px solid var(--border); padding-bottom:6px; margin-top:10px;">
-        Previous Emails with <span id="emailLeadDisplay"></span>
-        <button id="btnEmailRefresh" class="light" style="width:auto; margin-left:10px;"><i class="fa-solid fa-rotate"></i> Load/Refresh History</button>
+  <div style="font-weight:900; border-bottom:1px solid var(--border); padding-bottom:6px; margin-top:10px;">
+    Previous Emails with <span id="emailLeadDisplay"></span>
+    <button id="btnEmailRefresh" class="light" style="width:auto; margin-left:10px;">
+      <i class="fa-solid fa-rotate"></i> Load/Refresh History
+    </button>
+  </div>
+
+  <div id="emailHistory" style="max-height: 400px; overflow-y: auto; margin-top:10px;">
+    <div class="muted" style="text-align:center;padding:20px;">
+      Connect Outlook and click "Load/Refresh History" to view emails.
     </div>
-    <div id="emailHistory" style="max-height: 400px; overflow-y: auto; margin-top:10px;">
-        <div class="muted" style="text-align:center;padding:20px;">
-            Connect Gmail and click "Load/Refresh History" to view emails.
-        </div>
-        </div>
+  </div>
 
-    <hr style="border:0; border-top:1px solid var(--border); margin:20px 0;" />
+  <hr style="border:0; border-top:1px solid var(--border); margin:20px 0;" />
 
-    <div style="font-weight:900; margin-bottom:10px;">Compose New Email</div>
-    <form id="emailComposeForm">
-        <label>To:</label>
-        <input id="emailTo" disabled />
-        <label>Subject</label>
-        <input id="emailSubject" name="subject" required placeholder="Re: Follow up on [Project Name]" />
-        <label>Body</label>
-        <textarea id="emailBody" name="body" rows="10" required placeholder="Hello [Lead Name], ..."></textarea>
-        <button type="submit" id="btnSendEmail" class="primary" style="margin-top:10px;"><i class="fa-solid fa-paper-plane"></i> Send Email</button>
-    </form>
+  <div style="font-weight:900; margin-bottom:10px;">Compose New Email</div>
+  <form id="emailComposeForm">
+    <label>To:</label>
+    <input id="emailTo" disabled />
+    <label>Subject</label>
+    <input id="emailSubject" name="subject" required placeholder="Re: Follow up on [Project Name]" />
+    <label>Body</label>
+    <textarea id="emailBody" name="body" rows="10" required placeholder="Hello [Lead Name], ..."></textarea>
+    <button type="submit" id="btnSendEmail" class="primary" style="margin-top:10px;">
+      <i class="fa-solid fa-paper-plane"></i> Send Email
+    </button>
+  </form>
 </div>
-
           <div class="panel" id="p-coach">
             <div class="coach-grid"
               style="display:grid;grid-template-columns:minmax(260px,360px) 1fr;gap:14px;height:100%">
@@ -1495,7 +1521,7 @@
       </div>
     </div>
   </div>
-  
+
   <script>
     /* ======== UTILITIES ======== */
     const $ = s => document.querySelector(s);
@@ -1507,6 +1533,99 @@
     const currency = n => 'RM ' + (Math.round((n || 0) * 100) / 100).toLocaleString();
     function toast(msg, err = false) { const el = $('#toast'); el.textContent = msg; el.style.color = err ? '#b91c1c' : '#64748b'; setTimeout(() => { if (el.textContent === msg) el.textContent = ''; }, 3500); }
     function overlayStatus(t) { $('#overlayStatus').textContent = t; }
+
+
+    function showLogin() {
+      document.getElementById("loginScreen").style.display = "block";
+      document.querySelector("main").style.display = "none";
+      document.getElementById("btnLogout").style.display = "none";
+    }
+
+    function showDashboard() {
+      document.getElementById("loginScreen").style.display = "none";
+      document.querySelector("main").style.display = "block";
+      document.getElementById("btnLogout").style.display = "block";
+    }
+
+    function getAuthToken() {
+      return localStorage.getItem("auth_token");
+    }
+
+    function setAuthToken(token) {
+      localStorage.setItem("auth_token", token);
+    }
+
+    function logout() {
+      localStorage.removeItem("auth_token");
+      showLogin();
+    }
+
+    async function fetchWithAuth(url, options = {}) {
+      const token = getAuthToken();
+      if (!token) throw new Error("No token found");
+      return fetch(url, {
+        ...options,
+        headers: {
+          ...(options.headers || {}),
+          "Authorization": "Bearer " + token,
+          "Content-Type": "application/json"
+        }
+      });
+    }
+
+    // ===== LOGIN HANDLER =====
+    document.getElementById("btnLogin").addEventListener("click", async () => {
+      const email = document.getElementById("loginEmail").value;
+      const password = document.getElementById("loginPassword").value;
+      const msg = document.getElementById("loginMessage");
+
+      msg.textContent = "Logging in...";
+
+      try {
+        const res = await fetch(`/api/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password })
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Login failed");
+
+        setAuthToken(data.token);
+        msg.style.color = "green";
+        msg.textContent = "Login successful!";
+        showDashboard();
+
+      } catch (err) {
+        msg.style.color = "green";
+        msg.textContent = err.message;
+      }
+    });
+
+    // ===== LOGOUT HANDLER =====
+    document.getElementById("btnLogout").addEventListener("click", () => {
+      logout();
+    });
+
+    // ===== INITIAL LOAD =====
+    (async () => {
+      const token = getAuthToken();
+      if (!token) {
+        showLogin();
+        return;
+      }
+
+      try {
+        const res = await fetchWithAuth(`/api/me`);
+        if (!res.ok) throw new Error("Session expired");
+        const user = await res.json();
+        console.log("Logged in user:", user);
+        showDashboard();
+      } catch (e) {
+        console.warn(e.message);
+        logout();
+      }
+    })();
 
     /* Drawer/mask toggles */
     function toggleSettings(show) { document.body.classList.toggle('show-settings', show === undefined ? !document.body.classList.contains('show-settings') : show); }
@@ -3938,16 +4057,16 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
         return;
       }
 
-      const rows = parseCSV(txt); 
+      const rows = parseCSV(txt);
       if (rows.length < 2) {
         toast('CSV is empty or has no data rows.', true);
         return;
       }
 
       const header = rows[0].map(h => String(h || '').trim().toLowerCase());
-      
+
       const iEmail = header.indexOf('email');
-      
+
 
       let iPhone = -1;
       const phoneHeaders = ['phone', 'phone number', 'mobile'];
@@ -3996,6 +4115,7 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
     }
 
     $('#btnProcessPhoneCsv').addEventListener('click', processPhoneCSV);
+ 
 </script>
 </body>
 

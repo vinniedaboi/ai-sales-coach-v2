@@ -11,27 +11,26 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
-   ->withMiddleware(function (Middleware $middleware): void {
-        
-        // --- 1. Define the 'web' middleware group (THE MISSING PIECE) ---
+    ->withMiddleware(function (Middleware $middleware): void {
+
+        // --- 1. Web middleware group (optional, for session routes) ---
         $middleware->web(append: [
             \Illuminate\Cookie\Middleware\EncryptCookies::class,
             \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
-            \Illuminate\Session\Middleware\StartSession::class, // Crucial for session creation
+            \Illuminate\Session\Middleware\StartSession::class,
             \Illuminate\View\Middleware\ShareErrorsFromSession::class,
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
-            \App\Http\Middleware\VerifyCsrfToken::class, // Crucial for POST requests like /login
         ]);
 
-        // --- 2. Existing API configuration ---
+        // --- 2. API middleware group ---
         $middleware->api(prepend: [
             \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
         ]);
 
-        // --- 3. Existing Middleware Aliases ---
+        // --- 3. Middleware aliases ---
         $middleware->alias([
-            'verified' => \App\Http\Middleware\EnsureEmailIsVerified::class,
-        ]);
+    'auth.api' => \App\Http\Middleware\JwtAuthenticate::class, // ✅ Add this line
+]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

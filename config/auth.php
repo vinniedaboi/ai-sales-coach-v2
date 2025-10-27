@@ -42,9 +42,14 @@ return [
         ],
 
         'sanctum' => [
-        'driver' => 'sanctum',
-        'provider' => 'users', // Use your existing user provider
-    ],
+            'driver' => 'sanctum',
+            'provider' => 'users', // Use your existing user provider
+        ],
+
+        'api' => [
+                'driver' => 'jwt',   // <- we'll define this
+                'provider' => 'users',
+            ],
     ],
 
     /*

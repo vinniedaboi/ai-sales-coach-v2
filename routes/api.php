@@ -22,4 +22,9 @@ Route::get('/csv/list', [CsvFileController::class, 'listFiles']);
 // 3. Endpoint to handle processing a selected file (POST /api/csv/process)
 // This is the route the frontend will hit after selecting a file from the dropdown
 Route::post('/csv/process', [CsvFileController::class, 'processSelectedFile']);
-use App\Http\Controllers\LeadEmailController;
+
+use App\Http\Controllers\AuthController;
+
+Route::post('/register', [AuthController::class, 'register']);
+Route::post('/login', [AuthController::class, 'login']);
+Route::get('/me', [AuthController::class, 'me']);
