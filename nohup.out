@@ -97,3 +97,8 @@
   2025-10-26 15:11:39 /api/get-insights-temp ..................... ~ 501.48ms
   2025-10-26 15:11:39 /api/csv/list ................................ ~ 0.14ms
   2025-10-26 15:11:39 /api/gmail/check ........................... ~ 504.94ms
+
+   INFO  Server running on [http://127.0.0.1:8000].  
+
+  Press Ctrl+C to stop the server
+
