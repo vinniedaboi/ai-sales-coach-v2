@@ -30,7 +30,9 @@ Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::get('/me', [AuthController::class, 'me']);
 
+use App\Http\Controllers\OpenAIController;
 
+Route::post('/generate-ai', [OpenAIController::class, 'generate']);
 Route::get('/google/redirect', [GoogleController::class, 'redirectToGoogle']);
 Route::get('/google/callback', [GoogleController::class, 'handleCallback']);
 Route::get('/google/emails', [GoogleController::class, 'getEmails']);

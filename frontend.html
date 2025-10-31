@@ -1009,23 +1009,6 @@
           </select>
         </div>
       </div>
-      <label>AI Content Generation</label>
-      <div class="section" id="aiContentGenerator" style="margin-top:10px;">
-        <select id="aiActionType">
-          <option value="whatsapp" selected>WhatsApp</option>
-          <option value="email">Email</option>
-          <option value="phone">Phone</option>
-        </select>
-
-        <label for="aiMessage">Generated Message</label>
-        <textarea id="aiMessage"
-          placeholder="Select an action type and click 'Generate' to create a message template."></textarea>
-
-        <div class="row" style="margin-top:8px;">
-          <button id="aiGenerateBtn" class="secondary"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate</button>
-          <button id="aiExecuteBtn" class="primary"><i class="fa-solid fa-bolt"></i> Execute AI Action</button>
-        </div>
-      </div>
       <label>Potential Revenue (RM)</label>
       <input id="fRevenue" type="number" min="0" step="0.01" />
       <div class="row" style="margin-top:10px">
@@ -1167,6 +1150,7 @@
             <div class="tab" data-tab="raw">Raw from PropertyLab</div>
             <div class="tab" data-tab="whatsapp">WhatsApp</div>
             <div class="tab" data-tab="email">Email</div>
+            <div class="tab" data-tab="ai-action">AI Action</div>
           </div>
 
           <div class="panel active" id="p-insight">
@@ -1402,6 +1386,54 @@
               </button>
             </form>
           </div>
+
+          <div class="panel" id="p-ai-action">
+            <div style="font-weight:900;margin-bottom:10px;">AI Content Generation</div>
+
+            <!-- Lead Info -->
+            <div class="row" style="margin-bottom:10px;">
+              <div style="flex:1">
+                <label>Lead</label>
+                <input id="aiLeadDisplay" readonly placeholder="Select a lead first" />
+              </div>
+              <div style="flex:1">
+                <label>Action Type</label>
+                <select id="aiActionType">
+                  <option value="email">Email</option>
+                  <option value="whatsapp" selected>WhatsApp</option>
+                  <option value="phone">Phone Call</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Insight Selector -->
+            <label>Use Insight</label>
+            <select id="aiInsightSelect" style="margin-bottom:10px;">
+              <option value="">— No insights found —</option>
+            </select>
+
+            <label>Selected Insight</label>
+            <textarea id="aiInsightDisplay" readonly placeholder="No insight selected"
+              style="margin-bottom:10px;height:80px;background:#f9fafb;"></textarea>
+
+
+            <!-- Generated Message -->
+            <label>Generated Message</label>
+            <textarea id="aiGeneratedMessage" placeholder="Select an insight and click 'Generate' to create a message."
+              style="height:180px;"></textarea>
+
+            <div class="row" style="margin-top:10px;">
+              <button id="btnGenerateAi" class="secondary" style="flex:1">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> Generate
+              </button>
+              <button id="btnExecuteAiAction" class="primary" style="flex:1">
+                <i class="fa-solid fa-bolt"></i> Execute AI Action
+              </button>
+            </div>
+
+            <div id="aiActionStatus" class="muted" style="margin-top:10px;">—</div>
+          </div>
+
 
 
           <div class="panel" id="p-coach">
@@ -4312,7 +4344,249 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
       } else {
         updateGmailUI(false);
       }
+
+
+   
+      /* global variables */
+      // --- FINAL FIX: persist selected insight ---
+      let selectedInsightText = "";
+      let lastSelectedInsightId = null;
+      function dbg(name, el) {
+        console.log(`[DBG] ${name}:`, {
+          exists: !!el,
+          id: el?.id,
+          class: el?.className,
+          tag: el?.tagName,
+          value: (el && ('value' in el)) ? el.value : undefined,
+          innerText: (el && ('innerText' in el)) ? el.innerText : undefined,
+          node: el
+        });
+      }
+      function renderAiInsights() {
+        const insightSelect = document.getElementById("aiInsightSelect");
+        const leadDisplay = document.getElementById("aiLeadDisplay");
+        const insightDisplay = document.getElementById("aiInsightDisplay");
+
+        if (!insightSelect || !leadDisplay || !insightDisplay) return;
+
+        const prevInsight = selectedInsightText; // store current text
+        const prevId = lastSelectedInsightId;
+
+        // Reset dropdown
+        insightSelect.innerHTML = "";
+        insightSelect.disabled = false;
+        insightDisplay.value = "";
+        selectedInsightText = "";
+
+        if (!selected || !selected.email) {
+          leadDisplay.value = "";
+          const opt = new Option("— No lead selected —", "");
+          insightSelect.appendChild(opt);
+          insightSelect.disabled = true;
+          return;
+        }
+
+        leadDisplay.value = selected.name || selected.email || "";
+
+        // Collect insights
+        const insights = (actionsByEmail?.[selected.email] || []).filter(
+          i => i.insight && i.insight.trim()
+        );
+
+        if (!insights.length) {
+          const opt = new Option("— No insights found —", "");
+          insightSelect.appendChild(opt);
+          insightSelect.disabled = true;
+          return;
+        }
+
+        // Populate dropdown
+        insights.forEach((ins, idx) => {
+          const label = `${ins.tab_context || ins.tab || "General"} — ${ins.insight.substring(0, 100)}`;
+          const opt = new Option(label, ins.insight);
+          opt.dataset.id = ins.id || `idx_${idx}`;
+          insightSelect.appendChild(opt);
+        });
+
+        // Try to restore previous selection
+        let restored = false;
+        if (prevId) {
+          for (let i = 0; i < insightSelect.options.length; i++) {
+            if (insightSelect.options[i].dataset.id === prevId) {
+              insightSelect.selectedIndex = i;
+              restored = true;
+              break;
+            }
+          }
+        }
+
+        if (!restored) insightSelect.selectedIndex = 0;
+
+        selectedInsightText = insightSelect.value || "";
+        lastSelectedInsightId = insightSelect.selectedOptions[0]?.dataset?.id || null;
+        insightDisplay.value = selectedInsightText;
+
+        // Update handler
+        insightSelect.onchange = e => {
+          selectedInsightText = (e.target.value || "").trim();
+          lastSelectedInsightId = e.target.selectedOptions[0]?.dataset?.id || null;
+          insightDisplay.value = selectedInsightText;
+          console.log("✅ Insight updated & locked:", selectedInsightText);
+        };
+      }
+
+
+      /* Remove old document-level change listener if present (prevent duplicates) */
+      try {
+        // no-op: attempt to overwrite any previous listener by shadowing
+        document.removeEventListener("change", () => { });
+      } catch (e) { }
+
+      /* MutationObserver: render when AI tab becomes active */
+      if (window.__aiTabObserverAttached !== true) {
+        const tabObserver = new MutationObserver(() => {
+          const aiPanel = document.getElementById("p-ai-action");
+          if (aiPanel && aiPanel.classList.contains("active")) {
+            // small delay to let DOM settle if other code also runs on tab open
+            setTimeout(() => {
+              renderAiInsights();
+            }, 40);
+          }
+        });
+        tabObserver.observe(document.body, {
+          subtree: true,
+          attributes: true,
+          attributeFilter: ["class"]
+        });
+        window.__aiTabObserverAttached = true;
+      }
+
+      /* Generate AI message: ALWAYS read the textarea value directly (not stale vars) */
+      async function generateAiMessage() {
+        const type = document.getElementById("aiActionType").value;
+        const messageBox = document.getElementById("aiGeneratedMessage");
+        const status = document.getElementById("aiActionStatus");
+        const insightField = document.getElementById("aiInsightDisplay");
+
+        const insight = insightField.value?.trim() || selectedInsightText?.trim();
+        const name = selected?.name || selected?.email || "the client";
+
+        if (!insight) return toast("Please select an insight first.", true);
+
+        status.textContent = "Generating message...";
+        messageBox.value = "Generating with AI...";
+
+        // ✅ New prompt: agent speaking *to* the client
+        const promptMap = {
+          email: `Write a professional yet friendly follow-up email **from a real-estate agent to ${name}**. 
+The goal is to engage ${name} personally and provide value based on this insight: "${insight}".
+Keep it persuasive but natural, avoid sounding like a reminder or internal note.`,
+
+          whatsapp: `Write a short, conversational WhatsApp message **from a property agent to ${name}**. 
+Use a warm, human tone — like you’re personally messaging ${name} about this: "${insight}".
+Include a soft call-to-action (e.g. asking if they'd like to see listings, hop on a quick chat, etc.). 
+Do NOT write as if you’re briefing another agent.`,
+
+          phone: `Write a natural, spoken phone call script **for a property agent calling ${name}**.
+The agent should reference this insight: "${insight}". 
+Include greeting, short discussion points, and a friendly closing. 
+Keep it authentic, not robotic or like an internal note.`
+        };
+
+        const prompt = promptMap[type] || promptMap.whatsapp;
+
+        try {
+          const res = await fetch("/api/generate-ai", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ prompt })
+          });
+          const data = await res.json();
+
+          const output =
+            data.choices?.[0]?.message?.content?.trim() || "No message generated.";
+          messageBox.value = output;
+          status.textContent = "✅ Message ready.";
+        } catch (err) {
+          console.error(err);
+          status.textContent = "❌ Failed to generate message.";
+          messageBox.value = "Error generating message.";
+          toast("AI message generation failed.", true);
+        }
+      }
+
+      /* Execute the AI action (unchanged but included for completeness) */
+      // === Execute the AI action (correct WhatsApp integration) ===
+      // === Execute AI Action (integrates with Gmail compose tab) ===
+      async function executeAiAction() {
+        const type = document.getElementById("aiActionType").value;
+        const message = document.getElementById("aiGeneratedMessage").value.trim();
+        const status = document.getElementById("aiActionStatus");
+
+        if (!message) return toast("No message to send.", true);
+        if (!selected || !selected.email) return toast("Select a lead first.", true);
+
+        status.textContent = "Preparing action...";
+
+        try {
+          if (type === "email") {
+            // --- Move AI message to Gmail compose tab ---
+            const emailTo = document.getElementById("emailTo");
+            const emailSubject = document.getElementById("emailSubject");
+            const emailTabButton = document.querySelector('[data-tab="email"]');
+
+            if (!emailTo || !emailSubject || typeof quill === "undefined") {
+              throw new Error("Email compose elements or editor not found.");
+            }
+
+            // Fill in Gmail compose fields
+            emailTo.value = selected.email || "";
+            emailSubject.value = "Follow-up from your property inquiry";
+            quill.root.innerHTML = message;
+
+            // Switch to the Email tab
+            if (emailTabButton) emailTabButton.click();
+
+            toast("✅ AI-generated email draft added to your Email tab!");
+            status.textContent = "✅ Draft ready for review.";
+          }
+
+          else if (type === "whatsapp") {
+            const compose = document.getElementById("waCompose");
+            compose.value = message;
+            await sendWAMessage();
+            toast("✅ WhatsApp message sent!");
+            status.textContent = "✅ Action executed successfully.";
+          }
+
+          else if (type === "phone") {
+            console.log("📞 Phone call script:\n", message);
+            toast("✅ Phone call script prepared!");
+            status.textContent = "✅ Script ready.";
+          }
+        } catch (err) {
+          console.error(err);
+          toast("❌ Failed to execute AI action: " + err.message, true);
+          status.textContent = "❌ Action failed.";
+        }
+      }
+
+
+      /* Wire buttons (idempotent) */
+      document.getElementById("btnGenerateAi").removeEventListener("click", generateAiMessage);
+      document.getElementById("btnExecuteAiAction").removeEventListener("click", executeAiAction);
+      document.getElementById("btnGenerateAi").addEventListener("click", generateAiMessage);
+      document.getElementById("btnExecuteAiAction").addEventListener("click", executeAiAction);
+
+      /* Run initial render if panel is visible now */
+      setTimeout(() => {
+        const aiPanel = document.getElementById("p-ai-action");
+        if (aiPanel && aiPanel.classList.contains("active")) renderAiInsights();
+      }, 60);
+
+
     });
+
   </script>
   <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
   <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
