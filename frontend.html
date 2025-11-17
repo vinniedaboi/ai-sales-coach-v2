@@ -49,6 +49,17 @@
       gap: 12px
     }
 
+    #advPropList,
+    #advWebList {
+      min-width: 100% !important;
+    }
+
+    .adv-col {
+      flex: 1 1 300px !important;
+      min-width: 300px !important;
+    }
+
+
     .spinner {
       width: 56px;
       height: 56px;
@@ -155,6 +166,35 @@
       font-size: 14px;
       background: #fff
     }
+
+    /* global input override fix */
+    input[type="checkbox"],
+    input[type="radio"] {
+      width: auto !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      display: inline-block !important;
+      flex-shrink: 0 !important;
+    }
+
+    /* label layout fix */
+    #advWebList label,
+    #advPropList label {
+      display: flex !important;
+      align-items: flex-start !important;
+      gap: 10px !important;
+      width: 100% !important;
+    }
+
+    /* text container fix */
+    #advWebList label>div,
+    #advPropList label>div {
+      flex: 1 1 auto !important;
+      min-width: 0 !important;
+      word-break: break-word !important;
+      white-space: normal !important;
+    }
+
 
     textarea {
       min-height: 120px;
@@ -1091,7 +1131,10 @@
             <div class="head">Leads</div>
             <div class="searchbar">
               <input id="search" placeholder="Search name or email…" />
-              <div style="min-width:240px">
+              <div style="display:flex;gap:8px;align-items:center;min-width:240px;justify-content:flex-end">
+                <button id="btnAdvFilters" class="ghost" style="width:auto;white-space:nowrap;">
+                  <i class="fa-solid fa-sliders"></i> Advanced
+                </button>
                 <select id="sortBy" title="Sort by">
                   <option value="date" selected>Sort: Latest Activity</option>
                   <option value="zoom">Sort: Zoom Duration</option>
@@ -1585,6 +1628,57 @@
     </div>
   </div>
 
+  <div id="advFilterModal" role="dialog" aria-modal="true" aria-labelledby="advFilterTitle"
+    style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:9500">
+    <div class="sheet"
+      style="background:#fff;border:1px solid var(--border);border-radius:12px;max-width:960px;margin:6vh auto;padding:0;box-shadow:0 30px 60px rgba(0,0,0,0.25)">
+      <div class="hdr"
+        style="display:flex;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)">
+        <div id="advFilterTitle" style="font-weight:900">Advanced Filters</div>
+        <button id="advClose" class="ghost" style="width:auto">Close</button>
+      </div>
+      <div class="body" style="padding:14px 16px;max-height:70vh;overflow:auto">
+        <div style="flex:1 1 340px; min-width:340px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <div style="font-weight:800">Webinars Attended</div>
+            <label style="font-size:12px;color:#64748b">
+              <input type="checkbox" id="advWebAll" /> Select All
+            </label>
+          </div>
+          <input id="advWebSearch" placeholder="Search webinars…"
+            style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;">
+          <div id="advWebList"
+            style="margin-top:8px;border:1px solid var(--border);border-radius:8px;padding:6px 8px;max-height:260px;overflow:auto;font-size:13px;">
+          </div>
+        </div>
+
+        <div style="flex:1 1 340px; min-width:340px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <div style="font-weight:800">Properties Searched</div>
+            <label style="font-size:12px;color:#64748b">
+              <input type="checkbox" id="advPropAll" /> Select All
+            </label>
+          </div>
+          <input id="advPropSearch" placeholder="Search properties or state (e.g. Johor, JB)…"
+            style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;">
+          <div id="advPropList"
+            style="margin-top:8px;border:1px solid var(--border);border-radius:8px;padding:6px 8px;max-height:260px;overflow:auto;font-size:13px;">
+          </div>
+        </div>
+
+      </div>
+
+      <div style="margin-top:16px;display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <button id="advClear" class="ghost" style="width:auto">Clear all</button>
+        <div style="display:flex;gap:8px">
+          <button id="advCancel" class="ghost" style="width:auto">Cancel</button>
+          <button id="advApply" class="primary" style="width:auto">Apply Filters</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>
+
 
   <script>
     /* ======== UTILITIES ======== */
@@ -1710,6 +1804,71 @@
     $('#navDashboard').addEventListener('click', () => { toggleNav(false); $('#dashboardView').style.display = 'block'; $('#todoView').style.display = 'none'; });
     $('#navTodo').addEventListener('click', () => { toggleNav(false); $('#dashboardView').style.display = 'none'; $('#todoView').style.display = 'block'; renderGlobalTodo(true); });
     $('#btnBackToDashboard').addEventListener('click', () => { $('#dashboardView').style.display = 'block'; $('#todoView').style.display = 'none'; });
+
+    /* Search + Filters + Sort */
+    $('#search').addEventListener('input', () => renderUserList());
+    ['#fltWebinar', '#fltProperty', '#fltPaid', '#fltBooked', '#fltConverted', '#fltCancelled', '#fltCourses', '#sortBy']
+      .forEach(id => $(id).addEventListener('change', () => renderUserList()));
+
+    /* Advanced Filters modal */
+    const advBtn = document.getElementById('btnAdvFilters');
+    if (advBtn) {
+      advBtn.addEventListener('click', () => {
+        rebuildAdvancedFilterOptions();
+        document.getElementById('advFilterModal').style.display = 'block';
+      });
+    }
+
+    ['advClose', 'advCancel'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('click', () => {
+        document.getElementById('advFilterModal').style.display = 'none';
+      });
+    });
+
+    const advModal = document.getElementById('advFilterModal');
+    if (advModal) {
+      advModal.addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) advModal.style.display = 'none';
+      });
+    }
+
+    const advClear = document.getElementById('advClear');
+    if (advClear) advClear.addEventListener('click', () => {
+      advFilter.webinars = new Set();
+      advFilter.properties = new Set();
+      if ($('#advWebSearch')) $('#advWebSearch').value = '';
+      if ($('#advPropSearch')) $('#advPropSearch').value = '';
+      renderAdvancedFilterLists();
+      renderUserList();
+    });
+
+    const advApply = document.getElementById('advApply');
+    if (advApply) advApply.addEventListener('click', () => {
+      // read current selections into advFilter
+      advFilter.webinars = new Set();
+      advFilter.properties = new Set();
+      $$('#advWebList input[type="checkbox"][data-web]').forEach(ch => {
+        if (ch.checked) advFilter.webinars.add(ch.getAttribute('data-web'));
+      });
+      $$('#advPropList input[type="checkbox"][data-prop]').forEach(ch => {
+        if (ch.checked) advFilter.properties.add(ch.getAttribute('data-prop'));
+      });
+      document.getElementById('advFilterModal').style.display = 'none';
+      renderUserList();
+    });
+
+    if ($('#advWebSearch')) $('#advWebSearch').addEventListener('input', () => renderAdvancedFilterLists());
+    if ($('#advPropSearch')) $('#advPropSearch').addEventListener('input', () => renderAdvancedFilterLists());
+
+    if ($('#advWebAll')) $('#advWebAll').addEventListener('change', e => {
+      const checked = e.target.checked;
+      $$('#advWebList input[type="checkbox"][data-web]').forEach(ch => ch.checked = checked);
+    });
+    if ($('#advPropAll')) $('#advPropAll').addEventListener('change', e => {
+      const checked = e.target.checked;
+      $$('#advPropList input[type="checkbox"][data-prop]').forEach(ch => ch.checked = checked);
+    });
 
     /* Search + Filters + Sort */
     $('#search').addEventListener('input', () => renderUserList());
@@ -2297,6 +2456,13 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
 
     /* ======== DATA & LOGIC ======== */
     let profiles = {};
+    let advFilter = {
+      webinars: new Set(),
+      properties: new Set()
+    };
+    let allWebinarOptions = [];
+    let allPropertyOptions = [];
+    let propertyStateByName = {};
     let allActivities = [];
     let webinarByEmail = {};
     let csvPurchasesByEmail = {};
@@ -2345,12 +2511,14 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
         id: seed.id, name: seed.username || seed.name || '', email: (seed.email || '').toLowerCase(), phone: seed.formatted_phone_number || '',
         activities: [], total: 0, last: null, first: null,
         properties: new Set(), propActivityCount: 0,
+        webinars: new Set(), // set of webinar topics attended
         courses: new Map(), // name -> {lessons:Set, last:Date, progress:%}
         csv: { total: 0, rows: [] },
         webinar: null, hasWebinar: false, webinarHours: 0,
         engagement: 'Low', hot: false
       };
     }
+
 
     function updateProfile(u, a) {
       u.activities.push(a); u.total++;
@@ -2375,7 +2543,16 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
       }
     }
 
-    function attachWebinar(u, wz) { u.webinar = wz; u.hasWebinar = true; u.webinarHours = Number(wz.hours || 0); }
+    function attachWebinar(u, wz) {
+      u.webinar = wz;
+      u.hasWebinar = true;
+      u.webinarHours = Number(wz.hours || 0);
+
+      if (!u.webinars || !(u.webinars instanceof Set)) u.webinars = new Set();
+      (wz.meetings || []).forEach(m => {
+        if (m.topic) u.webinars.add(m.topic);
+      });
+    }
 
     /* Zoom Worker */
     function baseWorker() { return $('#zwUrl').value.trim().replace(/\/$/, ''); }
@@ -2406,7 +2583,7 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
         if (!profiles[email]) profiles[email] = createProfile({ email, username: wz.name || email });
         attachWebinar(profiles[email], wz);
       }
-      updateMetrics(); renderUserList();
+      updateMetrics(); renderUserList(); rebuildAdvancedFilterOptions();
       $('#zwStatus').textContent = `Loaded webinar data for ${Object.keys(webinarByEmail).length} users.`;
     }
 
@@ -2649,6 +2826,101 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
       return c;
     }
 
+    function rebuildAdvancedFilterOptions() {
+      const webSet = new Set();
+      const propSet = new Set();
+      propertyStateByName = {};
+
+      // From Zoom aggregate: collect webinar topics
+      Object.values(webinarByEmail || {}).forEach(w => {
+        (w.meetings || []).forEach(m => {
+          if (m.topic) webSet.add(m.topic);
+        });
+      });
+
+      // From activities: collect properties + state metadata
+      (allActivities || []).forEach(a => {
+        const name = a.property_name;
+        if (!name) return;
+        propSet.add(name);
+        const st = (a.state || a.property_state || a.project_state || '').trim();
+        if (st && !propertyStateByName[name]) propertyStateByName[name] = st;
+      });
+
+      allWebinarOptions = Array.from(webSet).sort((a, b) => a.localeCompare(b));
+      allPropertyOptions = Array.from(propSet).sort((a, b) => a.localeCompare(b));
+
+      renderAdvancedFilterLists();
+    }
+
+    function renderAdvancedFilterLists() {
+      const webList = $('#advWebList');
+      const propList = $('#advPropList');
+      if (!webList || !propList) return;
+
+      const webSearch = ($('#advWebSearch')?.value || '').toLowerCase();
+      const propSearch = ($('#advPropSearch')?.value || '').toLowerCase();
+
+      // Webinars
+      const webHtml = allWebinarOptions
+        .filter(t => !webSearch || t.toLowerCase().includes(webSearch))
+        .map(t => `
+          <label style="display:flex;align-items:center;gap:6px;padding:3px 0;">
+            <input type="checkbox" data-web="${esc(t)}" ${advFilter.webinars.has(t) ? 'checked' : ''}/>
+            <span>${esc(t)}</span>
+          </label>
+        `).join('');
+
+      webList.innerHTML = webHtml || '<div class="muted">No webinars.</div>';
+
+      // Properties (search by name or state text)
+      const propHtml = allPropertyOptions
+        .filter(n => {
+          const lc = n.toLowerCase();
+          const st = (propertyStateByName[n] || '').toLowerCase();
+          return !propSearch || lc.includes(propSearch) || st.includes(propSearch);
+        })
+        .map(n => {
+          const st = propertyStateByName[n] || '';
+          return `
+  <label style="
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
+    padding:8px 4px;
+    width:100%;
+  ">
+    <input type="checkbox" data-prop="${esc(n)}"
+           ${advFilter.properties.has(n) ? 'checked' : ''}
+           style="flex-shrink:0; margin-top:3px;">
+
+    <div style="
+      flex:1;
+      min-width:0;
+      white-space:normal;
+      word-break:break-word;
+      font-size:13px;
+      line-height:1.35;
+    ">
+      <strong>${esc(n)}</strong>
+      ${st ? `<div class="muted" style="font-size:12px;">${esc(st)}</div>` : ''}
+    </div>
+  </label>
+`;
+
+        }).join('');
+
+
+      propList.innerHTML = propHtml || '<div class="muted">No properties.</div>';
+
+      // Update "Select All" checkboxes
+      const webAll = $('#advWebAll');
+      const propAll = $('#advPropAll');
+      if (webAll) webAll.checked = allWebinarOptions.length > 0 && advFilter.webinars.size === allWebinarOptions.length;
+      if (propAll) propAll.checked = allPropertyOptions.length > 0 && advFilter.properties.size === allPropertyOptions.length;
+    }
+
+
     function updateMetrics() {
       $('#mWebinarUsers').textContent = Object.keys(webinarByEmail).length;
       $('#mPLUsers').textContent = Object.keys(profiles).length;
@@ -2656,7 +2928,10 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
       $('#mActiveLearners').textContent = Object.values(profiles).filter(u => u.courses.size > 0).length;
       $('#mPurchasers').textContent = countPurchasers();
       $('#mTotalCommission').textContent = currency(sumConvertedCommission());
+
+      rebuildAdvancedFilterOptions();
     }
+
 
     function userHasBooking(u, status) {
       const list = bookingsByEmail[u.email] || [];
@@ -2670,6 +2945,7 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
       const q = $('#search').value.trim().toLowerCase();
       const fWeb = $('#fltWebinar').checked, fProp = $('#fltProperty').checked, fPaid = $('#fltPaid').checked, fCourses = $('#fltCourses').checked;
       const fBooked = $('#fltBooked').checked, fConverted = $('#fltConverted').checked, fCancelled = $('#fltCancelled').checked;
+
       if (q && !((u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q))) return false;
       if (fWeb && !u.hasWebinar) return false;
       if (fProp && u.properties.size === 0) return false;
@@ -2678,8 +2954,29 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
       if (fBooked && !userHasBooking(u, 'book')) return false;
       if (fConverted && !userHasBooking(u, 'convert')) return false;
       if (fCancelled && !userHasBooking(u, 'cancel')) return false;
+
+
+      if (advFilter.webinars && advFilter.webinars.size > 0) {
+        const topics = new Set();
+        if (u.webinars instanceof Set) u.webinars.forEach(t => topics.add(t));
+        if (u.webinar && Array.isArray(u.webinar.meetings)) {
+          u.webinar.meetings.forEach(m => { if (m.topic) topics.add(m.topic); });
+        }
+        const matchWeb = Array.from(topics).some(t => advFilter.webinars.has(t));
+        if (!matchWeb) return false;
+      }
+
+
+      if (advFilter.properties && advFilter.properties.size > 0) {
+        const props = u.properties instanceof Set ? u.properties : new Set(Array.isArray(u.properties) ? u.properties : []);
+        let matchProp = false;
+        props.forEach(p => { if (advFilter.properties.has(p)) matchProp = true; });
+        if (!matchProp) return false;
+      }
+
       return true;
     }
+
 
     function ts(x) { return x ? (x instanceof Date ? x.getTime() : new Date(x).getTime()) : 0; }
 
@@ -4346,7 +4643,7 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
       }
 
 
-   
+
       /* global variables */
       // --- FINAL FIX: persist selected insight ---
       let selectedInsightText = "";
