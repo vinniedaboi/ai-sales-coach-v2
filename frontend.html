@@ -3124,11 +3124,17 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
           if (a.property_name && !uniq.has(a.property_name)) {
             uniq.add(a.property_name);
             html += `<div style="border:1px solid var(--border);border-radius:10px;padding:10px">
-          <div style="font-weight:800">${esc(a.property_name)}</div>
-          <div class="kv"><span>Type</span><span>${esc(a.unit_type || '—')}</span></div>
-          <div class="kv"><span>Price</span><span>${a.net_price ? 'RM ' + Number(a.net_price).toLocaleString() : '—'}</span></div>
-          <div class="kv"><span>Source</span><span>${esc(a.project_source || '—')}</span></div>
-        </div>`;
+  <div style="font-weight:800">${esc(a.property_name)}</div>
+
+  <div class="kv"><span>Type</span><span>${esc(a.unit_type || '—')}</span></div>
+  <div class="kv"><span>Size</span><span>${esc(a.size || '—')} sq ft</span></div>
+  <div class="kv"><span>Price</span><span>${a.net_price ? 'RM ' + Number(a.net_price).toLocaleString() : '—'}</span></div>
+
+  <div class="kv"><span>State</span><span>${esc(a.property_state || '—')}</span></div>
+  <div class="kv"><span>City</span><span>${esc(a.property_city || '—')}</span></div>
+
+  <div class="kv"><span>Source</span><span>${esc(a.project_source || '—')}</span></div>
+</div>`;
           }
         });
         grid.innerHTML = html || '<div class="muted">No properties.</div>';
