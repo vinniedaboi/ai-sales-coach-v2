@@ -12,10 +12,20 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-    $table->text('google_access_token')->nullable();
-    $table->text('google_refresh_token')->nullable();
-    $table->timestamp('google_token_expires_at')->nullable();
-});
+
+            if (!Schema::hasColumn('users', 'google_access_token')) {
+                $table->text('google_access_token')->nullable();
+            }
+
+            if (!Schema::hasColumn('users', 'google_refresh_token')) {
+                $table->text('google_refresh_token')->nullable();
+            }
+
+            if (!Schema::hasColumn('users', 'google_token_expires_at')) {
+                $table->timestamp('google_token_expires_at')->nullable();
+            }
+
+        });
     }
 
     /**
@@ -24,7 +34,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            //
+            // On SQLite, dropping columns is not supported; leave empty.
         });
     }
 };

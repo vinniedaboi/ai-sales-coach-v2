@@ -1780,6 +1780,8 @@
         if (!res.ok) throw new Error("Session expired");
         const user = await res.json();
         console.log("Logged in user:", user);
+        window.loggedInUser = user;
+        window.userRole = user.role;
         showDashboard();
       } catch (e) {
         console.warn(e.message);
@@ -3453,6 +3455,11 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
           saveCache(); renderItemsList(containerId, email, tab); renderInsightTable(); renderGlobalTodo(false); renderGlobalTodo(true);
         };
       });
+    }
+
+    function canViewItem(item) {
+      if (window.userRole === "admin") return true;
+      return item.assignee === window.loggedInUser.name;
     }
 
     /* GLOBAL TODO */

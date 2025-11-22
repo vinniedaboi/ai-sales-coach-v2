@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -21,15 +20,14 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'role',                      // <-- ADDED
         'outlook_access_token',
-    'outlook_refresh_token',
-    'outlook_connected_at',
+        'outlook_refresh_token',
+        'outlook_connected_at',
     ];
 
     /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var list<string>
+     * Attributes that should be hidden for arrays.
      */
     protected $hidden = [
         'password',
@@ -37,9 +35,7 @@ class User extends Authenticatable
     ];
 
     /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
+     * The attributes that should be cast.
      */
     protected function casts(): array
     {
@@ -47,5 +43,18 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * Role helpers
+     */
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
+    }
+
+    public function isUser(): bool
+    {
+        return $this->role === 'user';
     }
 }
