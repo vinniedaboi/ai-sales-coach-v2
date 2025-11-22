@@ -9,6 +9,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <style>
     :root {
       --primary: #2563eb;
@@ -3119,27 +3121,64 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
         renderItemsList('#webinarItems', selected.email, 'webinar');
       }
       if (which === 'properties') {
-        const grid = $('#propGrid'); const uniq = new Set(); let html = '';
+        const grid = $('#propGrid');
+        const uniq = new Set();
+        let html = "";
+        const mapQueue = [];
+
         selected.activities.forEach(a => {
           if (a.property_name && !uniq.has(a.property_name)) {
             uniq.add(a.property_name);
-            html += `<div style="border:1px solid var(--border);border-radius:10px;padding:10px">
-  <div style="font-weight:800">${esc(a.property_name)}</div>
 
-  <div class="kv"><span>Type</span><span>${esc(a.unit_type || '—')}</span></div>
-  <div class="kv"><span>Size</span><span>${esc(a.size || '—')} sq ft</span></div>
-  <div class="kv"><span>Price</span><span>${a.net_price ? 'RM ' + Number(a.net_price).toLocaleString() : '—'}</span></div>
+            const mapId = `map-${a.property_name.replace(/\W+/g, "_")}`;
 
-  <div class="kv"><span>State</span><span>${esc(a.property_state || '—')}</span></div>
-  <div class="kv"><span>City</span><span>${esc(a.property_city || '—')}</span></div>
+            html += `
+        <div style="border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:10px">
+          <div style="font-weight:800">${esc(a.property_name)}</div>
 
-  <div class="kv"><span>Source</span><span>${esc(a.project_source || '—')}</span></div>
-</div>`;
+          <div class="kv"><span>Type</span><span>${esc(a.unit_type || '—')}</span></div>
+          <div class="kv"><span>Size</span><span>${esc(a.size || '—')} sq ft</span></div>
+          <div class="kv"><span>Price</span><span>${a.net_price ? 'RM ' + Number(a.net_price).toLocaleString() : '—'}</span></div>
+
+          <div class="kv"><span>State</span><span>${esc(a.property_state || '—')}</span></div>
+          <div class="kv"><span>City</span><span>${esc(a.property_city || '—')}</span></div>
+
+          <div class="kv"><span>Latitude</span><span>${a.property_latitude || '—'}</span></div>
+          <div class="kv"><span>Longitude</span><span>${a.property_longitude || '—'}</span></div>
+
+          <div id="${mapId}" style="width:100%;height:220px;border-radius:10px;margin-top:10px;overflow:hidden;"></div>
+        </div>
+      `;
+
+            if (a.property_latitude && a.property_longitude) {
+              mapQueue.push({
+                id: mapId,
+                lat: Number(a.property_latitude),
+                lng: Number(a.property_longitude)
+              });
+            }
           }
         });
+
         grid.innerHTML = html || '<div class="muted">No properties.</div>';
+
+        // INIT MAPS
+        setTimeout(() => {
+          mapQueue.forEach(m => {
+            const map = L.map(m.id).setView([m.lat, m.lng], 15);
+
+            L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+              maxZoom: 19
+            }).addTo(map);
+
+            L.marker([m.lat, m.lng]).addTo(map);
+          });
+        }, 300);
+
         renderItemsList('#propertiesItems', selected.email, 'properties');
       }
+
+
       if (which === 'courses') {
         const grid = $('#courseGrid'); let html = '';
         selected.courses.forEach(c => {
