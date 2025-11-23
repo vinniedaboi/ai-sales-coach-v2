@@ -1944,29 +1944,29 @@
     window.loggedInUser = JSON.parse(localStorage.getItem("user") || "{}");
     window.userRole = window.loggedInUser.role || "user";
     function updateAssigneeDropdown() {
-  const assigneeSelect = document.getElementById("fAssignee");
-  if (!assigneeSelect) return;
+      const assigneeSelect = document.getElementById("fAssignee");
+      if (!assigneeSelect) return;
 
-  const predefined = document
-    .getElementById("assigneeList")
-    .value.split(",")
-    .map(a => a.trim())
-    .filter(a => a);
+      const predefined = document
+        .getElementById("assigneeList")
+        .value.split(",")
+        .map(a => a.trim())
+        .filter(a => a);
 
-  assigneeSelect.innerHTML = `<option value="">Select Assignee</option>`;
+      assigneeSelect.innerHTML = `<option value="">Select Assignee</option>`;
 
-  if (window.userRole === "admin") {
-    // Admin sees full list
-    predefined.forEach(email => {
-      assigneeSelect.innerHTML += `<option value="${email}">${email}</option>`;
-    });
-  } else {
-    // User sees only their own email
-    assigneeSelect.innerHTML += `<option value="${window.loggedInUser.email}">
+      if (window.userRole === "admin") {
+        // Admin sees full list
+        predefined.forEach(email => {
+          assigneeSelect.innerHTML += `<option value="${email}">${email}</option>`;
+        });
+      } else {
+        // User sees only their own email
+        assigneeSelect.innerHTML += `<option value="${window.loggedInUser.email}">
         ${window.loggedInUser.email}
       </option>`;
-  }
-}
+      }
+    }
 
 
     $('#assigneeList').addEventListener('change', updateAssigneeDropdown);
@@ -2544,16 +2544,31 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
     }
 
     function attachWebinar(u, wz) {
+      // Store raw webinar object
       u.webinar = wz;
       u.hasWebinar = true;
+
+      // Hours (already works)
       u.webinarHours = Number(wz.hours || 0);
 
+      // NEW: attach missing totals
+      u.webinarPollAnswers = Number(wz.pollAnswers || 0);
+      u.webinarQAs = Number(wz.qas || 0);
+      u.webinarReactions = Number(wz.reactions || 0);
+
+      // make the UI happy
+      wz.pollAnswers = u.webinarPollAnswers;
+      wz.qas = u.webinarQAs;
+      wz.reactions = u.webinarReactions;
+
+      // Track meeting topics (unchanged)
       if (!u.webinars || !(u.webinars instanceof Set)) u.webinars = new Set();
       (wz.meetings || []).forEach(m => {
         if (m.topic) u.webinars.add(m.topic);
       });
     }
 
+    
     /* Zoom Worker */
     function baseWorker() { return $('#zwUrl').value.trim().replace(/\/$/, ''); }
 
@@ -2576,6 +2591,13 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
           fetch(`${baseWorker()}/api/pollsSmart?id=${encodeURIComponent(m.id)}&uuid=${encodeURIComponent(m.uuid || '')}`).then(r => r.json()),
           fetch(`${baseWorker()}/api/qaSmart?id=${encodeURIComponent(m.id)}&uuid=${encodeURIComponent(m.uuid || '')}`).then(r => r.json()),
         ]);
+        console.log("=== INPUT TO AGGREGATE ===", {
+          participants: participants.participants,
+          polls: polls.data,
+          qa: qa.data,
+          chat: participants.chat,
+          reactions: participants.reactions
+        });
         compileZoomAggregate(webinarByEmail, { participants: participants.participants || [], polls: polls.data || {}, qa: qa.data || {}, chat: participants.chat || [], reactions: participants.reactions || [] }, m);
       }
       // attach per email
@@ -2625,22 +2647,59 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
       }
 
       // Polls
-      const pollSets = []; const polls = raw.polls;
-      if (polls) {
-        if (Array.isArray(polls.questions)) pollSets.push(...polls.questions);
-        if (Array.isArray(polls.polls)) polls.polls.forEach(pl => (pl.questions || []).forEach(q => pollSets.push(q)));
-      }
+      // Polls
+const pollSets = []; const polls = raw.polls;
+if (polls) {
+  if (Array.isArray(polls.questions)) pollSets.push(...polls.questions);
+  if (Array.isArray(polls.polls)) polls.polls.forEach(pl => (pl.questions || []).forEach(q => pollSets.push(q)));
+}
 
-      pollSets.forEach(q => {
-        (q.answers || q.answered || []).forEach(a => {
-          const r = ensure(target, a.name || a.user_name || a.email, a.email); r.pollAnswers += 1;
-          const key = r.email || `no-email::${norm(r.name)}`;
-          if (!perMeeting[key]) perMeeting[key] = { minutes: 0, polls: 0, qas: 0, reactions: 0 };
-          if (!perDetails[key]) perDetails[key] = { polls: [], qas: [] };
-          const ansTxt = a.answer_text || a.answer || (Array.isArray(a.answers) ? a.answers.join(', ') : '');
-          perMeeting[key].polls += 1; perDetails[key].polls.push({ question: q.title || q.name || 'Question', answer: ansTxt || '—' });
-        });
+pollSets.forEach(q => {
+  // 🔥 New: support "Smart" poll format where each `q` is actually a person
+  // with `question_details: [{ question, answer, ... }, ...]`
+  if (Array.isArray(q.question_details) && q.question_details.length) {
+    const whoName =
+      q.name ||
+      [q.first_name, q.last_name].filter(Boolean).join(' ') ||
+      '';
+    const whoEmail = q.email || '';
+
+    const r = ensure(target, whoName, whoEmail);
+    const key = r.email || `no-email::${norm(r.name)}`;
+    if (!perMeeting[key]) perMeeting[key] = { minutes: 0, polls: 0, qas: 0, reactions: 0 };
+    if (!perDetails[key]) perDetails[key] = { polls: [], qas: [] };
+
+    q.question_details.forEach(d => {
+      r.pollAnswers += 1;
+      perMeeting[key].polls += 1;
+      perDetails[key].polls.push({
+        question: d.question || 'Question',
+        answer: d.answer || '—'
       });
+    });
+
+    return; // don't fall through to legacy path
+  }
+
+  // Legacy Zoom poll formats (keep existing behaviour)
+  (q.answers || q.answered || []).forEach(a => {
+    const r = ensure(target, a.name || a.user_name || a.email, a.email);
+    const key = r.email || `no-email::${norm(r.name)}`;
+    if (!perMeeting[key]) perMeeting[key] = { minutes: 0, polls: 0, qas: 0, reactions: 0 };
+    if (!perDetails[key]) perDetails[key] = { polls: [], qas: [] };
+    const ansTxt =
+      a.answer_text ||
+      a.answer ||
+      (Array.isArray(a.answers) ? a.answers.join(', ') : '');
+    r.pollAnswers += 1;
+    perMeeting[key].polls += 1;
+    perDetails[key].polls.push({
+      question: q.title || q.name || 'Question',
+      answer: ansTxt || '—'
+    });
+  });
+});
+
 
       // Q&A
       const qaItems = (raw.qa && (raw.qa.questions || raw.qa.qa || raw.qa.items)) || [];
@@ -3072,7 +3131,7 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
         return;
       }
       if (which === 'webinar') {
-        const w = selected.webinar; const stats = $('#webStats'), tbody = $('#webTable tbody'), details = $('#webDetails');
+        let w = selected.webinar; const stats = $('#webStats'), tbody = $('#webTable tbody'), details = $('#webDetails');
         if (!w) { stats.innerHTML = '<div class="muted">No webinar activity.</div>'; tbody.innerHTML = ''; details.innerHTML = ''; $('#webAttend').innerHTML = ''; }
         else {
           stats.innerHTML = `
@@ -3657,7 +3716,7 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
           // Apply assignee filter
           if (!canViewItem(it)) return;
 
-  if (fAssignee && it.assignee !== fAssignee) return;
+          if (fAssignee && it.assignee !== fAssignee) return;
 
           rows.push({
             email,
