@@ -2568,7 +2568,7 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
       });
     }
 
-    
+
     /* Zoom Worker */
     function baseWorker() { return $('#zwUrl').value.trim().replace(/\/$/, ''); }
 
@@ -2648,57 +2648,57 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
 
       // Polls
       // Polls
-const pollSets = []; const polls = raw.polls;
-if (polls) {
-  if (Array.isArray(polls.questions)) pollSets.push(...polls.questions);
-  if (Array.isArray(polls.polls)) polls.polls.forEach(pl => (pl.questions || []).forEach(q => pollSets.push(q)));
-}
+      const pollSets = []; const polls = raw.polls;
+      if (polls) {
+        if (Array.isArray(polls.questions)) pollSets.push(...polls.questions);
+        if (Array.isArray(polls.polls)) polls.polls.forEach(pl => (pl.questions || []).forEach(q => pollSets.push(q)));
+      }
 
-pollSets.forEach(q => {
-  // 🔥 New: support "Smart" poll format where each `q` is actually a person
-  // with `question_details: [{ question, answer, ... }, ...]`
-  if (Array.isArray(q.question_details) && q.question_details.length) {
-    const whoName =
-      q.name ||
-      [q.first_name, q.last_name].filter(Boolean).join(' ') ||
-      '';
-    const whoEmail = q.email || '';
+      pollSets.forEach(q => {
+        // 🔥 New: support "Smart" poll format where each `q` is actually a person
+        // with `question_details: [{ question, answer, ... }, ...]`
+        if (Array.isArray(q.question_details) && q.question_details.length) {
+          const whoName =
+            q.name ||
+            [q.first_name, q.last_name].filter(Boolean).join(' ') ||
+            '';
+          const whoEmail = q.email || '';
 
-    const r = ensure(target, whoName, whoEmail);
-    const key = r.email || `no-email::${norm(r.name)}`;
-    if (!perMeeting[key]) perMeeting[key] = { minutes: 0, polls: 0, qas: 0, reactions: 0 };
-    if (!perDetails[key]) perDetails[key] = { polls: [], qas: [] };
+          const r = ensure(target, whoName, whoEmail);
+          const key = r.email || `no-email::${norm(r.name)}`;
+          if (!perMeeting[key]) perMeeting[key] = { minutes: 0, polls: 0, qas: 0, reactions: 0 };
+          if (!perDetails[key]) perDetails[key] = { polls: [], qas: [] };
 
-    q.question_details.forEach(d => {
-      r.pollAnswers += 1;
-      perMeeting[key].polls += 1;
-      perDetails[key].polls.push({
-        question: d.question || 'Question',
-        answer: d.answer || '—'
+          q.question_details.forEach(d => {
+            r.pollAnswers += 1;
+            perMeeting[key].polls += 1;
+            perDetails[key].polls.push({
+              question: d.question || 'Question',
+              answer: d.answer || '—'
+            });
+          });
+
+          return; // don't fall through to legacy path
+        }
+
+        // Legacy Zoom poll formats (keep existing behaviour)
+        (q.answers || q.answered || []).forEach(a => {
+          const r = ensure(target, a.name || a.user_name || a.email, a.email);
+          const key = r.email || `no-email::${norm(r.name)}`;
+          if (!perMeeting[key]) perMeeting[key] = { minutes: 0, polls: 0, qas: 0, reactions: 0 };
+          if (!perDetails[key]) perDetails[key] = { polls: [], qas: [] };
+          const ansTxt =
+            a.answer_text ||
+            a.answer ||
+            (Array.isArray(a.answers) ? a.answers.join(', ') : '');
+          r.pollAnswers += 1;
+          perMeeting[key].polls += 1;
+          perDetails[key].polls.push({
+            question: q.title || q.name || 'Question',
+            answer: ansTxt || '—'
+          });
+        });
       });
-    });
-
-    return; // don't fall through to legacy path
-  }
-
-  // Legacy Zoom poll formats (keep existing behaviour)
-  (q.answers || q.answered || []).forEach(a => {
-    const r = ensure(target, a.name || a.user_name || a.email, a.email);
-    const key = r.email || `no-email::${norm(r.name)}`;
-    if (!perMeeting[key]) perMeeting[key] = { minutes: 0, polls: 0, qas: 0, reactions: 0 };
-    if (!perDetails[key]) perDetails[key] = { polls: [], qas: [] };
-    const ansTxt =
-      a.answer_text ||
-      a.answer ||
-      (Array.isArray(a.answers) ? a.answers.join(', ') : '');
-    r.pollAnswers += 1;
-    perMeeting[key].polls += 1;
-    perDetails[key].polls.push({
-      question: q.title || q.name || 'Question',
-      answer: ansTxt || '—'
-    });
-  });
-});
 
 
       // Q&A
@@ -3151,9 +3151,30 @@ pollSets.forEach(q => {
           <td><span class="expand" data-idx="${i}">${esc(m.topic || 'Webinar')}</span></td>
           <td>${m.start_time ? fmtDate(m.start_time) : '—'}</td>
           <td>${m.minutes || 0}</td>
-          <td>${m.pollAnswers || 0}</td>
-          <td>${m.qas || 0}</td>
-          <td>${m.reactions || 0}</td>
+          <td>
+  ${(m.pollDetails || []).length
+              ? m.pollDetails.map(p =>
+                `<div class="kv"><b>${esc(p.question)}</b><br>${esc(p.answer)}</div>`
+              ).join('')
+              : '<span class="muted">—</span>'}
+</td>
+
+<td>
+  ${(m.qaDetails || []).length
+              ? m.qaDetails.map(q =>
+                `<div class="kv"><b>Q:</b> ${esc(q.question)}<br><b>A:</b> ${esc(q.answer || '—')}</div>`
+              ).join('')
+              : '<span class="muted">—</span>'}
+</td>
+
+<td>
+  ${(m.reactionDetails || []).length
+              ? m.reactionDetails.map(r =>
+                `<div class="kv">${esc(r.type || '👍')}</div>`
+              ).join('')
+              : '<span class="muted">—</span>'}
+</td>
+
         </tr>`).join('');
           tbody.innerHTML = rows || `<tr><td colspan="6" class="muted">No per-webinar data.</td></tr>`;
           $('#webDetails').innerHTML = '';
@@ -4070,35 +4091,35 @@ pollSets.forEach(q => {
 
     /* BOOTSTRAP */
     (async function boot() {
-      try {
-        // Initialize assignee dropdown
-        updateAssigneeDropdown();
+  try {
+    updateAssigneeDropdown();
+    initAICoach();
+    $('#zwTo').value = $('#zwTo').value || ymd(new Date());
 
-        // Initialize the AI Coach module
-        initAICoach();
+    // Always load PropertyLab from cache (fast)
+    loadCacheIfMatch();
 
-        // ensure end-date default
-        $('#zwTo').value = $('#zwTo').value || ymd(new Date());
-        // Try cache first
-        if (loadCacheIfMatch()) {
-          updateMetrics();
-          renderUserList();
-        } else {
-          overlayStatus('Loading PropertyLab…');
-          await loadPropertyLab();
-          overlayStatus('Loading Zoom…');
-          await fetchAllWebinars();
-          updateMetrics(); renderUserList(); renderGlobalTodo(false); renderGlobalTodo(true);
-          const first = $('#userList .user'); if (first) { first.click(); }
-        }
-      } catch (e) {
-        toast('Init error: ' + e.message, true);
-      } finally {
-        window.__dataReady = true;
-        $('#overlay').style.display = 'none';
-        $('main').setAttribute('aria-busy', 'false');
-      }
-    })();
+    // 🚀 Always refresh Zoom webinars from Worker
+    overlayStatus('Refreshing Zoom…');
+    await fetchAllWebinars();
+
+    updateMetrics();
+    renderUserList();
+    renderGlobalTodo(false);
+    renderGlobalTodo(true);
+
+    const first = $('#userList .user');
+    if (first) first.click();
+
+  } catch (e) {
+    toast('Init error: ' + e.message, true);
+  } finally {
+    window.__dataReady = true;
+    $('#overlay').style.display = 'none';
+    $('main').setAttribute('aria-busy', 'false');
+  }
+})();
+
 
     function getChatDaddyConfig(selectedAccIndex = 0) {
       const base = document.getElementById('cdBase')?.value.trim() || "https://api.chatdaddy.tech";
