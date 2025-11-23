@@ -959,7 +959,7 @@
     <div class="section">
       <h4>Assignee Settings</h4>
       <label>Predefined Assignees (comma separated)</label>
-      <input id="assigneeList" value="Zen Chua, Jun Bin, Wai Kit, Admin Support" />
+      <input id="assigneeList" value="junbinlow@gmail.com, chuahongzheng@gmail.com, waikit@propertylab.tech" />
       <div class="muted" style="margin-top:6px">These will appear in the dropdown when adding insights</div>
     </div>
 
@@ -1782,6 +1782,8 @@
         console.log("Logged in user:", user);
         window.loggedInUser = user;
         window.userRole = user.role;
+        applyAssigneeFilterVisibility();
+        updateAssigneeDropdown();
         showDashboard();
       } catch (e) {
         console.warn(e.message);
@@ -1938,40 +1940,34 @@
     /*
     * 1. Logic for Populating the Assignee Dropdown
     */
+
+    window.loggedInUser = JSON.parse(localStorage.getItem("user") || "{}");
+    window.userRole = window.loggedInUser.role || "user";
     function updateAssigneeDropdown() {
-      const assigneeInput = $('#assigneeList');
-      const assigneeSelect = $('#fAssignee');
+  const assigneeSelect = document.getElementById("fAssignee");
+  if (!assigneeSelect) return;
 
-      if (!assigneeInput || !assigneeSelect) return;
+  const predefined = document
+    .getElementById("assigneeList")
+    .value.split(",")
+    .map(a => a.trim())
+    .filter(a => a);
 
-      // Get and process the comma-separated list
-      const assignees = assigneeInput.value
-        .split(',')
-        .map(name => name.trim())
-        .filter(name => name.length > 0);
+  assigneeSelect.innerHTML = `<option value="">Select Assignee</option>`;
 
-      // Clear existing options, but save the default one if it exists
-      const defaultOption = assigneeSelect.querySelector('option[value=""]');
-      assigneeSelect.innerHTML = '';
-      if (defaultOption) {
-        assigneeSelect.appendChild(defaultOption);
-      } else {
-        const newDefault = document.createElement('option');
-        newDefault.value = '';
-        newDefault.textContent = 'Select Assignee';
-        assigneeSelect.appendChild(newDefault);
-      }
+  if (window.userRole === "admin") {
+    // Admin sees full list
+    predefined.forEach(email => {
+      assigneeSelect.innerHTML += `<option value="${email}">${email}</option>`;
+    });
+  } else {
+    // User sees only their own email
+    assigneeSelect.innerHTML += `<option value="${window.loggedInUser.email}">
+        ${window.loggedInUser.email}
+      </option>`;
+  }
+}
 
-      // Add new options from the settings list
-      assignees.forEach(name => {
-        const option = document.createElement('option');
-        option.value = name; // Use the name as both value and text
-        option.textContent = name;
-        assigneeSelect.appendChild(option);
-      });
-
-      toast('Assignee list updated from Settings.');
-    }
 
     $('#assigneeList').addEventListener('change', updateAssigneeDropdown);
     $('#assigneeList').addEventListener('keyup', updateAssigneeDropdown);
@@ -3457,9 +3453,25 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
       });
     }
 
+    function applyAssigneeFilterVisibility() {
+      const el = document.getElementById("todoFilterAssignee");
+      if (!el) return;
+
+      if (window.userRole !== "admin") {
+        el.style.display = "none";
+      } else {
+        el.style.display = "inline-block";
+      }
+    }
+
     function canViewItem(item) {
-      if (window.userRole === "admin") return true;
-      return item.assignee === window.loggedInUser.name;
+      if (!window.loggedInUser) return false;
+
+      // Admin sees everything
+      if (window.loggedInUser.role === "admin") return true;
+
+      // Normal users only see items assigned to them
+      return item.assignee?.toLowerCase() === window.loggedInUser.email?.toLowerCase();
     }
 
     /* GLOBAL TODO */
@@ -3538,6 +3550,8 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
       for (const [email, items] of Object.entries(currentActionsByEmail)) {
         const lead = profiles[email]; // profiles is assumed to be a global object that is loaded on init
         (items || []).forEach(it => {
+
+          if (!canViewItem(it)) return;
           rows.push({
             // Mapping item properties to row properties
             email, leadName: lead?.name || email, tab: it.tab, insight: it.insight, action: it.action,
@@ -3641,7 +3655,9 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
 
         (items || []).forEach(it => {
           // Apply assignee filter
-          if (fAssignee && it.assignee !== fAssignee) return;
+          if (!canViewItem(it)) return;
+
+  if (fAssignee && it.assignee !== fAssignee) return;
 
           rows.push({
             email,
