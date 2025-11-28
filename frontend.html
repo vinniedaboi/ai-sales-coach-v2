@@ -1779,6 +1779,10 @@
       logout();
     });
 
+    async function loadZoomData() {
+      return fetchAllWebinars();
+    }
+
     // ===== INITIAL LOAD =====
     (async () => {
       const token = getAuthToken();
@@ -1800,9 +1804,10 @@
 
         if (cacheLoaded) {
           showDashboard();
-          overlay.style.display = "none";
+          $('#overlay').style.display = 'none';
           return;
         }
+
         showDashboard();
 
         setTimeout(async () => {
@@ -4030,77 +4035,139 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
     }
 
     /* CACHE */
-    const CACHE_KEY = 'plab-ai-cache-v6';
+    /* CACHE v2 – source-level cache that matches current data model */
+    const CACHE_KEY = 'plab-ai-cache-v7';
 
-    function buildCacheKey() {
-      const zFrom = $('#zwFrom')?.value || '2024-01-01';
-      const zTo = $('#zwTo')?.value || ymd(new Date());
-      const plBase = $('#plBase')?.value?.trim() || '';
-      const zwUrl = $('#zwUrl')?.value?.trim() || '';
-      return JSON.stringify({ plBase, zwUrl, zFrom, zTo });
-    }
-
-    function saveCache() {
-      const cache = {
-        settings: {
-          plBase: $('#plBase').value,
-          plKey: $('#plKey').value,
-          zwUrl: $('#zwUrl').value,
-          zwHost: $('#zwHost').value,
-          zwFrom: $('#zwFrom').value,
-          zwTo: $('#zwTo').value,
-        },
-        plUsers: window.plUsers,
-        zoomData: window.zoomData,
-        allActivities: window.allActivities,
+    function readCacheSettings() {
+      return {
+        plBase: $('#plBase').value,
+        plKey: $('#plKey').value,
+        zwUrl: $('#zwUrl').value,
+        zwHost: $('#zwHost').value,
+        zwFrom: $('#zwFrom').value,
+        zwTo: $('#zwTo').value,
       };
-
-      localStorage.setItem("dashboard_cache", JSON.stringify(cache));
     }
 
+    function describeCache(cache) {
+      const leads = cache?.meta?.leadCount || 0;
+      const ts = cache?.savedAt;
+      if (!leads) return 'Cache present (no leads count)';
+      return `Cached ${leads} leads at ${fmtDate(ts)}`;
+    }
+
+    function saveCache(reason = '') {
+      try {
+        if (!profiles || !Object.keys(profiles).length) {
+          console.log('saveCache: no profiles yet, skipping');
+          return;
+        }
+
+        const cache = {
+          version: 2,
+          savedAt: new Date().toISOString(),
+          settings: readCacheSettings(),
+          data: {
+            allActivities,
+            webinarByEmail,
+            csvPurchasesByEmail,
+            bookingsByEmail,
+            actionsByEmail,
+            opportunityByEmail,
+            allPropertiesMap,
+          },
+          meta: {
+            leadCount: Object.keys(profiles).length,
+            reason: reason || '',
+          },
+        };
+
+        localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+        $('#cacheInfo').textContent = describeCache(cache);
+        $('#lastSaved').textContent = `Last saved: ${fmtDate(cache.savedAt)}`;
+        console.log('CACHE SAVED', cache);
+      } catch (e) {
+        console.error('Cache save failed', e);
+      }
+    }
 
     function loadCacheIfMatch() {
       try {
-        const cache = JSON.parse(localStorage.getItem("dashboard_cache"));
-        if (!cache) return false;
+        const raw = localStorage.getItem(CACHE_KEY);
+        if (!raw) {
+          console.log('No cache found');
+          return false;
+        }
 
-        const currentSettings = {
-          plBase: $('#plBase').value,
-          plKey: $('#plKey').value,
-          zwUrl: $('#zwUrl').value,
-          zwHost: $('#zwHost').value,
-          zwFrom: $('#zwFrom').value,
-          zwTo: $('#zwTo').value,
-        };
+        const cache = JSON.parse(raw);
+        if (!cache || cache.version !== 2) {
+          console.log('Cache version mismatch, clearing');
+          localStorage.removeItem(CACHE_KEY);
+          return false;
+        }
 
-        // Compare settings
         const sameSettings =
-          JSON.stringify(currentSettings) === JSON.stringify(cache.settings);
+          JSON.stringify(readCacheSettings()) === JSON.stringify(cache.settings);
 
-        if (!sameSettings) return false;
+        if (!sameSettings) {
+          console.log('Cache settings changed, ignoring cache');
+          return false;
+        }
 
-        // Restore cached data
-        window.plUsers = cache.plUsers;
-        window.zoomData = cache.zoomData;
-        window.allActivities = cache.allActivities;
+        overlayStatus('Restoring cached dashboard…');
+        $('#overlay').style.display = 'flex';
 
-        console.log("CACHE RESTORED");
+        const d = cache.data || {};
 
+        // Restore SOURCE data
+        allActivities = d.allActivities || [];
+        webinarByEmail = d.webinarByEmail || {};
+        csvPurchasesByEmail = d.csvPurchasesByEmail || {};
+        bookingsByEmail = d.bookingsByEmail || {};
+        actionsByEmail = d.actionsByEmail || {};
+        opportunityByEmail = d.opportunityByEmail || {};
+        allPropertiesMap = d.allPropertiesMap || null;
+
+        // Rebuild derived data / profiles
+        buildProfilesFromActivities(allActivities);
+        mergeCSVIntoProfiles();
+
+        // Re-attach webinar info to profiles
+        if (webinarByEmail && Object.keys(webinarByEmail).length) {
+          for (const [email, wz] of Object.entries(webinarByEmail)) {
+            if (!profiles[email]) {
+              profiles[email] = createProfile({ email, username: wz.name || email });
+            }
+            attachWebinar(profiles[email], wz);
+          }
+        }
+
+        // Re-render everything that previously depended on PropertyLab + Zoom
+        updateMetrics();
         renderUserList();
-        renderDashboardMetrics();
+        if (selected) renderSelected();
+        if (typeof renderGlobalTodo === 'function') {
+          renderGlobalTodo(false);
+          renderGlobalTodo(true);
+        }
+        ensureFiltersVisible?.();
 
+        window.__dataReady = true;
         $('#overlay').style.display = 'none';
 
+        $('#cacheInfo').textContent = describeCache(cache);
+        $('#lastSaved').textContent = `Using cache from ${fmtDate(cache.savedAt)}`;
+
+        console.log('CACHE RESTORED from', cache.savedAt);
         return true;
       } catch (e) {
-        console.error("Cache load failed", e);
+        console.error('Cache load failed', e);
+        clearCache();
         return false;
       }
     }
 
-
     function ensureFiltersVisible() {
-      // This targets all filter chips and forces them to be displayed as inline-flex.
       const filterChips = $$('#filtersRow .chip');
       if (filterChips.length > 0) {
         filterChips.forEach(el => el.style.display = 'inline-flex');
@@ -4108,45 +4175,46 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
     }
 
     function clearCache() {
-      localStorage.removeItem("dashboard_cache");
+      localStorage.removeItem(CACHE_KEY);
       $('#cacheInfo').textContent = 'Cache cleared';
-      $('#lastSaved').textContent = '';
+      $('#lastSaved').textContent = '—';
     }
 
+
     /* BOOTSTRAP */
-    (async function boot() {
-      try {
-        updateAssigneeDropdown();
-        initAICoach();
-        $('#zwTo').value = $('#zwTo').value || ymd(new Date());
+    // (async function boot() {
+    //   try {
+    //     updateAssigneeDropdown();
+    //     initAICoach();
+    //     $('#zwTo').value = $('#zwTo').value || ymd(new Date());
 
 
-        // FIRST load PropertyLab (fixes initial login issue)
-        overlayStatus('Loading PropertyLab…');
-        await loadPropertyLab();
+    //     // FIRST load PropertyLab (fixes initial login issue)
+    //     overlayStatus('Loading PropertyLab…');
+    //     await loadPropertyLab();
 
-        // THEN load Zoom
-        overlayStatus('Refreshing Zoom…');
-        await fetchAllWebinars();
+    //     // THEN load Zoom
+    //     overlayStatus('Refreshing Zoom…');
+    //     await fetchAllWebinars();
 
-        saveCache();
+    //     saveCache();
 
-        updateMetrics();
-        renderUserList();
-        renderGlobalTodo(false);
-        renderGlobalTodo(true);
+    //     updateMetrics();
+    //     renderUserList();
+    //     renderGlobalTodo(false);
+    //     renderGlobalTodo(true);
 
-        const first = $('#userList .user');
-        if (first) first.click();
+    //     const first = $('#userList .user');
+    //     if (first) first.click();
 
-      } catch (e) {
-        toast('Init error: ' + e.message, true);
-      } finally {
-        window.__dataReady = true;
-        $('#overlay').style.display = 'none';
-        $('main').setAttribute('aria-busy', 'false');
-      }
-    })();
+    //   } catch (e) {
+    //     toast('Init error: ' + e.message, true);
+    //   } finally {
+    //     window.__dataReady = true;
+    //     $('#overlay').style.display = 'none';
+    //     $('main').setAttribute('aria-busy', 'false');
+    //   }
+    // })();
 
 
 
