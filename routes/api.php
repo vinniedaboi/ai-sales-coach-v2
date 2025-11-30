@@ -5,6 +5,7 @@ use App\Http\Controllers\AIController;
 use App\Http\Controllers\TemporaryInsightController;
 use App\Http\Controllers\CsvFileController;
 use App\Http\Controllers\GoogleController;
+use App\Http\Controllers\UserRemarkController;
 
 Route::post('/session/start', [AIController::class, 'startSession']);
 Route::post('/chat', [AIController::class, 'chat']);
@@ -38,3 +39,5 @@ Route::get('/google/callback', [GoogleController::class, 'handleCallback']);
 Route::get('/google/emails', [GoogleController::class, 'getEmails']);
 Route::post('/google/disconnect', [GoogleController::class, 'disconnect']);
 Route::post('/google/send', [GoogleController::class, 'sendEmail']);
+Route::get('/user-remarks/{email}', [UserRemarkController::class, 'show']);
+Route::post('/user-remarks/{email}', [UserRemarkController::class, 'save']);

@@ -1173,9 +1173,12 @@
             <div class="avatar" id="uAvatar">U</div>
             <div style="flex:1">
               <div class="name" id="uName">Select a user</div>
+
+
               <div id="uContact" class="muted">—</div>
               <div id="uLast" class="muted">Last activity: —</div>
               <div id="uMembership" class="muted">Membership (CSV lifetime): RM 0</div>
+
             </div>
             <div style="text-align:right">
               <div style="display:flex;gap:8px;justify-content:flex-end">
@@ -1214,6 +1217,17 @@
             <div class="action-card" style="margin-bottom:16px">
               <div style="font-weight:900;margin-bottom:6px">Potential Opportunity — Revenue Estimate</div>
               <div style="font-size:18px;font-weight:800;color:#166534" id="totalRevenueEstimate">RM 0</div>
+            </div>
+
+            <div style="padding:16px;border-bottom:1px solid var(--border)">
+              <label style="font-weight:700">Remarks (Private)</label>
+              <textarea id="uRemarks" placeholder="Write private notes here..."
+                style="margin-top:6px;height:80px;width:100%;border-radius:8px;border:1px solid #ddd;">
+    </textarea>
+              <button id="btnSaveRemarks" class="primary" style="margin-top:6px;width:auto">
+                Save Remarks
+              </button>
+              <div id="remarksStatus" class="muted" style="margin-top:4px">—</div>
             </div>
 
             <div id="insightTableContainer">
@@ -3174,7 +3188,12 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
       $('#uMembership').textContent = `Membership (CSV lifetime): ${currency((selected.csv?.total) || 0)}`;
       $('#uLast').textContent = `Last activity: ${selected.last ? fmtDate(selected.last) : '—'}`;
       $('#raw').textContent = JSON.stringify({ propertylab_activities: selected.activities }, null, 2);
-
+      fetchWithAuth(`/api/user-remarks/${selected.email}`)
+        .then(r => r.json())
+        .then(data => {
+          document.getElementById("uRemarks").value = data.remarks || "";
+        });
+      window.currentUser = selected; // so save button knows who is selected
       // Update AI Coach context when a new lead is selected
       if (window.updateCoachContext) {
         window.updateCoachContext(selected);
@@ -5051,6 +5070,28 @@ Keep it authentic, not robotic or like an internal note.`
       document.getElementById("btnExecuteAiAction").removeEventListener("click", executeAiAction);
       document.getElementById("btnGenerateAi").addEventListener("click", generateAiMessage);
       document.getElementById("btnExecuteAiAction").addEventListener("click", executeAiAction);
+
+      document.getElementById("btnSaveRemarks").addEventListener("click", async () => {
+        if (!window.currentUser) return;
+
+        const remarks = document.getElementById("uRemarks").value;
+
+        try {
+          const res = await fetchWithAuth(`/api/user-remarks/${currentUser.email}`, {
+            method: "POST",
+            body: JSON.stringify({ remarks })
+          });
+
+
+          document.getElementById("remarksStatus").textContent = "Saved!";
+          setTimeout(() => {
+            document.getElementById("remarksStatus").textContent = "—";
+          }, 1500);
+        } catch (e) {
+          document.getElementById("remarksStatus").textContent = "Save failed.";
+        }
+      });
+
 
       /* Run initial render if panel is visible now */
       setTimeout(() => {
