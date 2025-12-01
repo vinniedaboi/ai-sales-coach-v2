@@ -1293,8 +1293,11 @@
               </button>
             </div>
             <div class="grid" id="propGrid"></div>
+
             <div id="propertiesItems" style="margin-top:12px"></div>
+            <div id="propBookingsApi" style="margin-top:16px"></div>
             <div id="allPropertiesMap" style="width:100%;height:380px;border-radius:12px;margin:15px 0;"></div>
+
           </div>
 
 
@@ -2061,6 +2064,102 @@
     * 2. Save Item Logic (Database Simulation + Temporary Local Display)
     */
     // Function must be async to handle API calls
+
+    async function loadPropertyBookingsForLead(email) {
+      const cont = document.getElementById('propBookingsApi');
+      if (!cont) return;
+
+      // Reset when switching leads
+      cont.innerHTML = '';
+
+      if (!email) {
+        cont.innerHTML = '<div class="muted">No email for this lead.</div>';
+        return;
+      }
+
+      const base = document.getElementById('plBase')?.value.trim().replace(/\/$/, '') || '';
+      const key = document.getElementById('plKey')?.value.trim() || '';
+
+      if (!base || !key) {
+        cont.innerHTML = '<div class="muted">PropertyLab API not configured.</div>';
+        return;
+      }
+
+      cont.innerHTML = '<div class="muted">Loading booking data from PropertyLab…</div>';
+
+      try {
+        const url = `${base}/users/property-bookings?user=${encodeURIComponent(email)}`;
+        const res = await fetch(url, {
+          headers: { 'Api-Key': key }
+        });
+
+        if (!res.ok) {
+          const txt = await res.text().catch(() => '');
+          console.error('Property bookings error', res.status, txt);
+          cont.innerHTML = `<div class="muted">Failed to load booking data (${res.status}).</div>`;
+          return;
+        }
+
+        const json = await res.json();
+        const rows = (json?.data?.data) || [];
+
+        if (!rows.length) {
+          cont.innerHTML = '<div class="muted">No PropertyLab bookings for this lead.</div>';
+          return;
+        }
+
+        const statusBadge = (s) => {
+          const val = String(s).toLowerCase();
+          if (val === '1' || val === 'convert') {
+            return '<span class="badge" style="background:#dcfce7;color:#166534">Converted</span>';
+          }
+          if (val === '0' || val === 'book') {
+            return '<span class="badge" style="background:#e0f2fe;color:#075985">Booked</span>';
+          }
+          if (val === '2' || val === 'cancel' || val === 'cancelled') {
+            return '<span class="badge" style="background:#fee2e2;color:#991b1b">Cancelled</span>';
+          }
+          return esc(s ?? '—');
+        };
+
+        let html = `
+      <div style="margin-top:10px">
+        <div style="font-weight:900;margin-bottom:6px">Property Bookings (PropertyLab API)</div>
+        <table class="tbl">
+          <thead>
+            <tr>
+              <th>Property</th>
+              <th>Unit</th>
+              <th>Price (RM)</th>
+              <th>Commission (RM)</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+        html += rows.map(b => `
+      <tr>
+        <td>${esc(b.property_name || '')}</td>
+        <td>${esc(b.unit_number || '')}</td>
+        <td>${b.price ? Number(b.price).toLocaleString() : '—'}</td>
+        <td>${b.commission ? Number(b.commission).toLocaleString() : '—'}</td>
+        <td>${statusBadge(b.status)}</td>
+      </tr>
+    `).join('');
+
+        html += `
+          </tbody>
+        </table>
+      </div>
+    `;
+
+        cont.innerHTML = html;
+      } catch (e) {
+        console.error('Property bookings exception', e);
+        cont.innerHTML = '<div class="muted">Error loading PropertyLab bookings.</div>';
+      }
+    }
     async function saveItem() {
       // 1. Pre-checks and Data Collection
       if (typeof selected !== 'object' || !selected || !selected.email) {
@@ -3245,6 +3344,10 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
       // Update AI Coach context when a new lead is selected
       if (window.updateCoachContext) {
         window.updateCoachContext(selected);
+      }
+
+      if (selected?.email) {
+        loadPropertyBookingsForLead(selected.email);
       }
 
       if (window.loadChatMessages && selected?.phone) {
