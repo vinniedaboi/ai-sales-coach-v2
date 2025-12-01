@@ -41,3 +41,4 @@ Route::post('/google/disconnect', [GoogleController::class, 'disconnect']);
 Route::post('/google/send', [GoogleController::class, 'sendEmail']);
 Route::get('/user-remarks/{email}', [UserRemarkController::class, 'show']);
 Route::post('/user-remarks/{email}', [UserRemarkController::class, 'save']);
+Route::get('/user-remarks', [UserRemarkController::class, 'all']);

@@ -3872,7 +3872,7 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
       });
     }
 
-    function renderTodoTableFull() {
+    async function renderTodoTableFull() {
       const tbody = $('#todoTableBody');
       const noTodoMessage = $('#noTodoMessage');
 
@@ -3887,6 +3887,44 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
 
       const rows = [];
       let totalRevenue = 0;
+
+      let allRemarks = [];
+      try {
+        const rRes = await fetchWithAuth("/api/user-remarks");
+        allRemarks = await rRes.json();
+      } catch (e) {
+        console.error("Failed to load remarks", e);
+      }
+
+
+      const logged = window.loggedInUser;
+      const isAdmin = logged.role === "admin";
+      if (!isAdmin) {
+        allRemarks = allRemarks.filter(r => (r.by?.email === logged.email));
+      }
+
+      const remarkRows = allRemarks.map(r => ({
+        email: r.email,
+        leadName: profiles[r.email]?.name || r.email,
+        tab: "remark",
+        insight: r.remarks || "(No remark)",
+        action: "—",
+        assignee: r.by ? `${r.by.name} (${r.by.email})` : "—",
+        priority: "Low",
+        due: "",
+        revenue: 0,
+        status: "—",
+        id: `remark-${Math.random().toString(36).slice(2)}`,
+        createdAt: r.timestamp || r.created_at || "",
+        tags: {
+          webinar: false,
+          property: false,
+          paid: false,
+          booked: false,
+          converted: false,
+          cancelled: false
+        }
+      }));
 
       for (const [email, items] of Object.entries(actionsByEmail)) {
         const lead = profiles[email];
@@ -3941,6 +3979,8 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
         });
       }
 
+      rows.push(...remarkRows);
+
       // Update total revenue display
       $('#totalTodoRevenue').textContent = currency(totalRevenue);
 
@@ -3964,6 +4004,7 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
     <tr data-email="${esc(r.email)}" data-tab="${esc(r.tab)}">
       <td><a href="#" class="gotoLead" style="color:var(--primary);font-weight:700">${esc(r.leadName)}</a></td>
       <td>
+        ${r.tab === 'remark' ? '<span class="badge" style="background:#e2e8f0;color:#334155">Remark</span>' : ''}
         ${r.tags.webinar ? '<span class="badge b-webinar">Webinar</span>' : ''}
         ${r.tags.property ? '<span class="badge b-prop">Property</span>' : ''}
         ${r.tags.paid ? '<span class="badge" style="background:#fff7ed;color:#9a3412">Paid ≥ 2388</span>' : ''}
@@ -3979,7 +4020,7 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
       <td>${r.due ? esc(r.due) : '-'}</td>
       <td>${r.revenue ? Number(r.revenue).toLocaleString() : '-'}</td>
       <td>
-        <select class="statusSel">
+        <select class="statusSel" ${r.tab === 'remark' ? 'disabled' : ''}>
           <option ${r.status === 'Open' ? 'selected' : ''}>Open</option>
           <option ${r.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
           <option ${r.status === 'Done' ? 'selected' : ''}>Done</option>
