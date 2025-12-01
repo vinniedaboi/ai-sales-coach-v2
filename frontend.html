@@ -1228,6 +1228,8 @@
                 Save Remarks
               </button>
               <div id="remarksStatus" class="muted" style="margin-top:4px">—</div>
+              <div id="remarksTimestamp" class="muted" style="margin-top:6px;font-size:12px">—</div>
+              <div id="remarksBy" class="muted" style="margin-top:2px;font-size:12px">—</div>
             </div>
 
             <div id="insightTableContainer">
@@ -3191,8 +3193,34 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
       fetchWithAuth(`/api/user-remarks/${selected.email}`)
         .then(r => r.json())
         .then(data => {
-          document.getElementById("uRemarks").value = data.remarks || "";
+
+          const isAdmin = window.role === "admin";
+          const isWriter = data?.by?.email === window.loggedInUser.email;
+
+          if (isAdmin || isWriter) {
+            // ADMIN or OWNER → show full remarks
+            $('#uRemarks').value = data.remarks || "";
+            $('#remarksTimestamp').textContent =
+              data.timestamp ? `Last edited: ${data.timestamp}` : "—";
+            $('#remarksBy').textContent =
+              data.by ? `By: ${data.by.name} (${data.by.email})` : "—";
+
+            $('#uRemarks').disabled = false;
+            $('#btnSaveRemarks').disabled = false;
+
+          } else {
+            // NORMAL USER viewing someone else’s remark → hide content
+            $('#uRemarks').value = "";
+            $('#remarksTimestamp').textContent = "—";
+            $('#remarksBy').textContent = "—";
+
+            // STILL ALLOW THEM TO SAVE THEIR OWN NEW REMARK
+            $('#uRemarks').disabled = false;
+            $('#btnSaveRemarks').disabled = false;
+          }
         });
+
+
       window.currentUser = selected; // so save button knows who is selected
       // Update AI Coach context when a new lead is selected
       if (window.updateCoachContext) {
@@ -5076,21 +5104,37 @@ Keep it authentic, not robotic or like an internal note.`
 
         const remarks = document.getElementById("uRemarks").value;
 
+        const payload = {
+          remarks,
+          writer_name: window.loggedInUser?.name || "Unknown",
+          writer_email: window.loggedInUser?.email || "unknown@example.com"
+        };
+
         try {
           const res = await fetchWithAuth(`/api/user-remarks/${currentUser.email}`, {
             method: "POST",
-            body: JSON.stringify({ remarks })
+            body: JSON.stringify(payload)
           });
 
+          const data = await res.json();
+          const timestamp = data.timestamp || new Date().toISOString().slice(0, 19).replace("T", " ");
+
+          document.getElementById("remarksTimestamp").textContent =
+            `Last edited: ${timestamp}`;
+
+          document.getElementById("remarksBy").textContent =
+            `By: ${payload.writer_name} (${payload.writer_email})`;
 
           document.getElementById("remarksStatus").textContent = "Saved!";
           setTimeout(() => {
             document.getElementById("remarksStatus").textContent = "—";
           }, 1500);
+
         } catch (e) {
           document.getElementById("remarksStatus").textContent = "Save failed.";
         }
       });
+
 
 
       /* Run initial render if panel is visible now */

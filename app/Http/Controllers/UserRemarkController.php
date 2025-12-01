@@ -25,33 +25,50 @@ class UserRemarkController extends Controller
 
     /** POST: /api/user-remarks/{email} */
     public function save(Request $request, $email)
-    {
-        $request->validate([
-            'remarks' => 'nullable|string'
-        ]);
+{
+    $request->validate([
+        'remarks' => 'nullable|string'
+    ]);
 
-        $remarks = $this->loadRemarks();
-        $found = false;
+    $remarks = $this->loadRemarks();
+    $found = false;
 
-        foreach ($remarks as &$item) {
-            if ($item['email'] === $email) {
-                $item['remarks'] = $request->input('remarks');
-                $found = true;
-                break;
-            }
-        }
+    // Identify the user writing the remark
+    $writerName = $request->input('writer_name') ?? 'Unknown';
+    $writerEmail = $request->input('writer_email') ?? 'unknown@example.com';
 
-        if (!$found) {
-            $remarks[] = [
-                'email' => $email,
-                'remarks' => $request->input('remarks') ?? ''
+    foreach ($remarks as &$item) {
+        if ($item['email'] === $email) {
+
+            $item['remarks'] = $request->input('remarks') ?? "";
+            $item['timestamp'] = now()->toDateTimeString();
+            $item['by'] = [
+                'name' => $writerName,
+                'email' => $writerEmail
             ];
+
+            $found = true;
+            break;
         }
-
-        $this->saveRemarks($remarks);
-
-        return response()->json(['status' => 'ok']);
     }
+
+    if (!$found) {
+        $remarks[] = [
+            'email' => $email,
+            'remarks' => $request->input('remarks') ?? "",
+            'timestamp' => now()->toDateTimeString(),
+            'by' => [
+                'name' => $writerName,
+                'email' => $writerEmail
+            ]
+        ];
+    }
+
+    $this->saveRemarks($remarks);
+
+    return response()->json(['status' => 'ok']);
+}
+
 
     private function loadRemarks(): array
     {
