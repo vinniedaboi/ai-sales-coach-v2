@@ -1205,6 +1205,7 @@
             <div class="tab" data-tab="whatsapp">WhatsApp</div>
             <div class="tab" data-tab="email">Email</div>
             <div class="tab" data-tab="ai-action">AI Action</div>
+            <div class="tab" data-tab="callrec">Call Recordings</div>
           </div>
 
           <div class="panel active" id="p-insight">
@@ -1508,6 +1509,24 @@
             <div id="aiActionStatus" class="muted" style="margin-top:10px;">—</div>
           </div>
 
+          <div class="panel" id="p-callrec" style="padding:16px">
+            <h3 style="font-weight:900;margin-bottom:12px">Call Recordings</h3>
+
+            <div id="callRecStatus" class="muted" style="margin-bottom:10px">—</div>
+
+            <table class="tbl" id="callRecTable">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Number</th>
+                  <th>Direction</th>
+                  <th>Duration</th>
+                  <th>Recording</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
 
 
           <div class="panel" id="p-coach">
@@ -3231,6 +3250,11 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
       if (window.loadChatMessages && selected?.phone) {
         window.loadChatMessages(selected.phone);
       }
+
+      if (window.loadCallRecordings) {
+        window.loadCallRecordings(selected);
+      }
+
       const emailToInput = document.getElementById("emailTo");
       if (emailToInput) {
         emailToInput.value = selected?.email || "";
@@ -3247,6 +3271,9 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
     function renderPanel(which) {
       if (which === 'insight') {
         renderInsightTable();
+        return;
+      }
+      if (which === "callrec") {
         return;
       }
       if (which === 'webinar') {
@@ -3871,6 +3898,89 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
         };
       });
     }
+
+    async function loadSalesTrailsCall(selected) {
+      const res = await fetchWithAuth("/api/salestrail/calls");
+
+      if (!res.ok) {
+        console.error("Salestrail error:", await res.text());
+        return [];
+      }
+
+      const data = await res.json();
+
+      // Always return an array
+      return Array.isArray(data) ? data : [];
+    }
+
+    function renderSalesTrailTable(calls) {
+        const tbody = $('#callRecTable tbody');
+        tbody.innerHTML = "";
+
+        if (!calls.length) {
+          tbody.innerHTML = `<tr><td colspan="5" class="muted" style="text-align:center">No recordings found.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = calls.map(c => `
+    <tr>
+      <td>${fmtDate(c.startTime)}</td>
+      <td>${esc(c.formattedNumber || c.number)}</td>
+      <td>${c.inbound ? "Inbound" : "Outbound"}</td>
+      <td>${c.duration}s</td>
+      <td>
+        ${c.recUrl
+            ? `<audio controls src="${c.recUrl}" style="width:160px"></audio>`
+            : "<span class='muted'>No recording</span>"
+          }
+      </td>
+    </tr>
+  `).join("");
+      }
+
+
+
+    window.loadCallRecordings = async function (user) {
+  const tbody = $("#callRecTable tbody");
+  const status = $("#callRecStatus");
+
+  tbody.innerHTML = `<tr><td colspan="5" class="muted">Loading…</td></tr>`;
+
+  try {
+    const calls = await loadSalesTrailsCall();
+
+    if (!Array.isArray(calls)) {
+      status.textContent = "Invalid Salestrail response.";
+      tbody.innerHTML = "";
+      return;
+    }
+
+    const phone = (user.phone || "").replace(/\D/g, "");
+
+    const matches = calls.filter(c => {
+      const n1 = (c.number || "").replace(/\D/g, "");
+      const n2 = (c.formattedNumber || "").replace(/\D/g, "");
+      return n1 === phone || n2 === phone;
+    });
+
+    if (!matches.length) {
+      status.textContent = "No call records found.";
+      tbody.innerHTML = "";
+      return;
+    }
+
+    status.textContent = `Found ${matches.length} call(s)`;
+    renderSalesTrailTable(matches);
+
+  } catch (err) {
+    console.error(err);
+    status.textContent = "Failed to load Salestrail data.";
+    tbody.innerHTML = "";
+  }
+};
+
+
+
 
     async function renderTodoTableFull() {
       const tbody = $('#todoTableBody');
@@ -4926,6 +5036,10 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
           node: el
         });
       }
+
+
+
+
       function renderAiInsights() {
         const insightSelect = document.getElementById("aiInsightSelect");
         const leadDisplay = document.getElementById("aiLeadDisplay");
@@ -5024,6 +5138,10 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
         });
         window.__aiTabObserverAttached = true;
       }
+
+
+      
+
 
       /* Generate AI message: ALWAYS read the textarea value directly (not stale vars) */
       async function generateAiMessage() {
