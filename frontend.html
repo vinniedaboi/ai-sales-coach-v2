@@ -1245,6 +1245,7 @@
                     <th>Revenue (RM)</th>
                     <th>Status</th>
                     <th>Actions</th>
+                    <th>Created At</th>
                   </tr>
                 </thead>
                 <tbody id="insightTableBody">
@@ -3549,6 +3550,7 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
         <button class="ghost editInsight" style="width:auto"><i class="fa-solid fa-edit"></i></button>
         <button class="ghost delInsight" style="width:auto"><i class="fa-solid fa-trash"></i></button>
       </td>
+      <td>${it.createdAt ? fmtDate(it.createdAt) : '-'}</td>
     </tr>
   `).join('');
 
