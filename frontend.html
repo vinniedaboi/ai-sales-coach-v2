@@ -3800,7 +3800,7 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
       const list = (actionsByEmail[email] || []).filter(x => x.tab === tab);
       const cont = $(containerId);
       if (!cont) return;
-      if (!list.length) { cont.innerHTML = '<div class="muted">No items yet.</div>'; return; }
+      // if (!list.length) { cont.innerHTML = '<div class="muted">No items yet.</div>'; return; }
       cont.innerHTML = list.map(it => `
     <div class="todo-row" data-id="${esc(it.id)}">
       <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
