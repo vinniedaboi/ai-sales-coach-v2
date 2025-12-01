@@ -3899,6 +3899,21 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
       });
     }
 
+    function normalizePhone(raw) {
+      if (!raw) return "";
+      let p = raw.toString().replace(/\D/g, "");
+
+      if (p.length === 8 && /^[689]/.test(p)) return "65" + p;
+      if (p.length === 10 && p.startsWith("65")) return p;
+      if (p.length < 8) return p;
+      if (p.startsWith("60")) return p;
+      if (p.startsWith("0") && p.length >= 9 && p.length <= 11) return "6" + p;
+      if (!p.startsWith("0") && p.length >= 9 && p.length <= 10) return "60" + p;
+
+      return p;
+    }
+
+
     async function loadSalesTrailsCall(selected) {
       const res = await fetchWithAuth("/api/salestrail/calls");
 
@@ -3914,15 +3929,15 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
     }
 
     function renderSalesTrailTable(calls) {
-        const tbody = $('#callRecTable tbody');
-        tbody.innerHTML = "";
+      const tbody = $('#callRecTable tbody');
+      tbody.innerHTML = "";
 
-        if (!calls.length) {
-          tbody.innerHTML = `<tr><td colspan="5" class="muted" style="text-align:center">No recordings found.</td></tr>`;
-          return;
-        }
+      if (!calls.length) {
+        tbody.innerHTML = `<tr><td colspan="5" class="muted" style="text-align:center">No recordings found.</td></tr>`;
+        return;
+      }
 
-        tbody.innerHTML = calls.map(c => `
+      tbody.innerHTML = calls.map(c => `
     <tr>
       <td>${fmtDate(c.startTime)}</td>
       <td>${esc(c.formattedNumber || c.number)}</td>
@@ -3930,54 +3945,61 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
       <td>${c.duration}s</td>
       <td>
         ${c.recUrl
-            ? `<audio controls src="${c.recUrl}" style="width:160px"></audio>`
-            : "<span class='muted'>No recording</span>"
-          }
+          ? `<audio controls src="${c.recUrl}" style="width:160px"></audio>`
+          : "<span class='muted'>No recording</span>"
+        }
       </td>
     </tr>
   `).join("");
-      }
+    }
 
 
 
     window.loadCallRecordings = async function (user) {
-  const tbody = $("#callRecTable tbody");
-  const status = $("#callRecStatus");
+      const tbody = $("#callRecTable tbody");
+      const status = $("#callRecStatus");
 
-  tbody.innerHTML = `<tr><td colspan="5" class="muted">Loading…</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5" class="muted">Loading…</td></tr>`;
 
-  try {
-    const calls = await loadSalesTrailsCall();
+      if (!user.phone) {
+        $("#callRecStatus").textContent = "This lead has no phone number.";
+        $("#callRecTable tbody").innerHTML = "";
+        return;
+      }
 
-    if (!Array.isArray(calls)) {
-      status.textContent = "Invalid Salestrail response.";
-      tbody.innerHTML = "";
-      return;
-    }
 
-    const phone = (user.phone || "").replace(/\D/g, "");
+      try {
+        const calls = await loadSalesTrailsCall();
 
-    const matches = calls.filter(c => {
-      const n1 = (c.number || "").replace(/\D/g, "");
-      const n2 = (c.formattedNumber || "").replace(/\D/g, "");
-      return n1 === phone || n2 === phone;
-    });
+        if (!Array.isArray(calls)) {
+          status.textContent = "Invalid Salestrail response.";
+          tbody.innerHTML = "";
+          return;
+        }
 
-    if (!matches.length) {
-      status.textContent = "No call records found.";
-      tbody.innerHTML = "";
-      return;
-    }
+        const phone = normalizePhone(user.phone);
 
-    status.textContent = `Found ${matches.length} call(s)`;
-    renderSalesTrailTable(matches);
+        const matches = calls.filter(c => {
+          const n1 = normalizePhone(c.number);
+          const n2 = normalizePhone(c.formattedNumber);
+          return n1 === phone || n2 === phone;
+        });
 
-  } catch (err) {
-    console.error(err);
-    status.textContent = "Failed to load Salestrail data.";
-    tbody.innerHTML = "";
-  }
-};
+        if (!matches.length) {
+          status.textContent = "No call records found.";
+          tbody.innerHTML = "";
+          return;
+        }
+
+        status.textContent = `Found ${matches.length} call(s)`;
+        renderSalesTrailTable(matches);
+
+      } catch (err) {
+        console.error(err);
+        status.textContent = "Failed to load Salestrail data.";
+        tbody.innerHTML = "";
+      }
+    };
 
 
 
@@ -5140,7 +5162,7 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
       }
 
 
-      
+
 
 
       /* Generate AI message: ALWAYS read the textarea value directly (not stale vars) */
