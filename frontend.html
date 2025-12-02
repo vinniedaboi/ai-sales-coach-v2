@@ -1743,6 +1743,7 @@
     const ymd = d => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
     const fmtDate = d => d ? new Date(d).toLocaleString() : '';
     const currency = n => 'RM ' + (Math.round((n || 0) * 100) / 100).toLocaleString();
+    let lastBookingCountCall = 0;
     function toast(msg, err = false) { const el = $('#toast'); el.textContent = msg; el.style.color = err ? '#b91c1c' : '#64748b'; setTimeout(() => { if (el.textContent === msg) el.textContent = ''; }, 3500); }
     function overlayStatus(t) { $('#overlayStatus').textContent = t; }
 
@@ -2354,7 +2355,7 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
 
       let scoreVisible = false;
       let history = [];
-      let lastBookingCountCall = 0;
+
       let mediaRecorder, audioChunks = [];
 
       customPromptInput.value = DEFAULT_PROMPT_TEMPLATE;
