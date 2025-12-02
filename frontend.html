@@ -1821,46 +1821,75 @@
 
     // ===== INITIAL LOAD =====
     (async () => {
+      const overlay = document.getElementById('overlay');
+
       const token = getAuthToken();
       if (!token) {
         showLogin();
+        if (overlay) overlay.style.display = 'none';
         return;
       }
 
       try {
         const res = await fetchWithAuth(`/api/me`);
         if (!res.ok) throw new Error("Session expired");
+
         const user = await res.json();
         window.loggedInUser = user;
         window.userRole = user.role;
+
         applyAssigneeFilterVisibility();
         updateAssigneeDropdown();
-        const cacheLoaded = loadCacheIfMatch();
 
+        // Ensure Zoom "To" date is set
+        if ($('#zwTo')) {
+          $('#zwTo').value = $('#zwTo').value || ymd(new Date());
+        }
+
+        // 1) Try cache
+        const cacheLoaded = loadCacheIfMatch();
         if (cacheLoaded) {
           showDashboard();
-          loadGlobalBookingCount();
-          overlay.style.display = "none";
+          await loadGlobalBookingCount();
+          window.__dataReady = true;
+          if (overlay) overlay.style.display = 'none';
+
+          // auto-select first user like old boot()
+          const first = $('#userList .user');
+          if (first) first.click();
+          document.querySelector('main')?.setAttribute('aria-busy', 'false');
           return;
         }
+
+        // 2) Full fresh boot
         showDashboard();
 
-        setTimeout(async () => {
-          try {
-            overlayStatus("Loading PropertyLab…");
-            await loadPropertyLab();
+        overlayStatus('Loading PropertyLab…');
+        await loadPropertyLab();
 
-            overlayStatus("Loading Zoom…");
-            await loadZoomData();
-            loadGlobalBookingCount();
-            saveCache();
-          } catch (err) {
-            console.error("Startup data load failed:", err);
-          }
-        }, 300);
+        overlayStatus('Refreshing Zoom…');
+        await fetchAllWebinars();
+
+        await loadGlobalBookingCount();
+
+        saveCache();
+
+        updateMetrics();
+        renderUserList();
+        renderGlobalTodo(false);
+        renderGlobalTodo(true);
+
+        const first = $('#userList .user');
+        if (first) first.click();
 
       } catch (e) {
+        console.error('Startup failed', e);
         logout();
+        return;
+      } finally {
+        window.__dataReady = true;
+        if (overlay) overlay.style.display = 'none';
+        document.querySelector('main')?.setAttribute('aria-busy', 'false');
       }
     })();
 
@@ -4402,123 +4431,155 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
     }
 
     /* CACHE */
-    const CACHE_KEY = 'plab-ai-cache-v6';
+        /* CACHE (v7) */
+    const CACHE_KEY = 'plab-ai-cache-v7';
 
     function buildCacheKey() {
       const zFrom = $('#zwFrom')?.value || '2024-01-01';
       const zTo = $('#zwTo')?.value || ymd(new Date());
       const plBase = $('#plBase')?.value?.trim() || '';
       const zwUrl = $('#zwUrl')?.value?.trim() || '';
-      return JSON.stringify({ plBase, zwUrl, zFrom, zTo });
+      const userId = window.loggedInUser?.id || null;
+      return JSON.stringify({ plBase, zwUrl, zFrom, zTo, userId });
     }
 
     function saveCache() {
-      const cache = {
-        settings: {
-          plBase: $('#plBase').value,
-          plKey: $('#plKey').value,
-          zwUrl: $('#zwUrl').value,
-          zwHost: $('#zwHost').value,
-          zwFrom: $('#zwFrom').value,
-          zwTo: $('#zwTo').value,
-        },
-        plUsers: window.plUsers,
-        zoomData: window.zoomData,
-        allActivities: window.allActivities,
-      };
+      try {
+        // Need at least some data before bothering
+        if (!allActivities || !allActivities.length) return;
 
-      localStorage.setItem("dashboard_cache", JSON.stringify(cache));
+        const payload = {
+          key: buildCacheKey(),
+          meta: {
+            savedAt: new Date().toISOString(),
+          },
+          data: {
+            allActivities,
+            webinarByEmail,
+            csvPurchasesByEmail,
+            bookingsByEmail,
+            actionsByEmail,
+            opportunityByEmail,
+          }
+        };
+
+        localStorage.setItem(CACHE_KEY, JSON.stringify(payload));
+
+        if ($('#lastSaved')) {
+          $('#lastSaved').textContent =
+            'Cached ' + new Date(payload.meta.savedAt).toLocaleString();
+        }
+      } catch (e) {
+        console.error('saveCache failed', e);
+      }
     }
-
 
     function loadCacheIfMatch() {
       try {
-        const cache = JSON.parse(localStorage.getItem("dashboard_cache"));
-        if (!cache) return false;
+        const raw = localStorage.getItem(CACHE_KEY);
+        if (!raw) return false;
 
-        const currentSettings = {
-          plBase: $('#plBase').value,
-          plKey: $('#plKey').value,
-          zwUrl: $('#zwUrl').value,
-          zwHost: $('#zwHost').value,
-          zwFrom: $('#zwFrom').value,
-          zwTo: $('#zwTo').value,
-        };
+        const cache = JSON.parse(raw);
+        if (!cache.key || cache.key !== buildCacheKey()) {
+          return false;
+        }
 
-        // Compare settings
-        const sameSettings =
-          JSON.stringify(currentSettings) === JSON.stringify(cache.settings);
+        const d = cache.data || {};
 
-        if (!sameSettings) return false;
+        allActivities       = d.allActivities       || [];
+        webinarByEmail      = d.webinarByEmail      || {};
+        csvPurchasesByEmail = d.csvPurchasesByEmail || {};
+        bookingsByEmail     = d.bookingsByEmail     || {};
+        actionsByEmail      = d.actionsByEmail      || {};
+        opportunityByEmail  = d.opportunityByEmail  || {};
 
-        // Restore cached data
-        window.plUsers = cache.plUsers;
-        window.zoomData = cache.zoomData;
-        window.allActivities = cache.allActivities;
+        // Rebuild profiles and inject everything back into the runtime
+        buildProfilesFromActivities(allActivities);
+        mergeCSVIntoProfiles();
 
-        console.log("CACHE RESTORED");
+        // Re-attach webinar aggregates like loadPropertyLab() does
+        if (webinarByEmail) {
+          const entries = webinarByEmail instanceof Map
+            ? webinarByEmail.entries()
+            : Object.entries(webinarByEmail);
 
-        renderUserList();
-        renderDashboardMetrics();
-
-        $('#overlay').style.display = 'none';
-
-        return true;
-      } catch (e) {
-        console.error("Cache load failed", e);
-        return false;
-      }
-    }
-
-
-    function ensureFiltersVisible() {
-      // This targets all filter chips and forces them to be displayed as inline-flex.
-      const filterChips = $$('#filtersRow .chip');
-      if (filterChips.length > 0) {
-        filterChips.forEach(el => el.style.display = 'inline-flex');
-      }
-    }
-
-    function clearCache() {
-      localStorage.removeItem("dashboard_cache");
-      $('#cacheInfo').textContent = 'Cache cleared';
-      $('#lastSaved').textContent = '';
-    }
-
-    /* BOOTSTRAP */
-    (async function boot() {
-      try {
-        updateAssigneeDropdown();
-        initAICoach();
-        $('#zwTo').value = $('#zwTo').value || ymd(new Date());
-
-
-        // FIRST load PropertyLab (fixes initial login issue)
-        overlayStatus('Loading PropertyLab…');
-        await loadPropertyLab();
-
-        // THEN load Zoom
-        overlayStatus('Refreshing Zoom…');
-        await fetchAllWebinars();
-
-        saveCache();
+          for (const [email, wz] of entries) {
+            if (!profiles[email]) {
+              profiles[email] = createProfile({ email, username: wz.name || email });
+            }
+            attachWebinar(profiles[email], wz);
+          }
+        }
 
         updateMetrics();
         renderUserList();
         renderGlobalTodo(false);
         renderGlobalTodo(true);
 
-        const first = $('#userList .user');
-        if (first) first.click();
+        if (typeof renderSelected === 'function' && selected) {
+          renderSelected();
+        }
 
-      } catch (e) {
-        toast('Init error: ' + e.message, true);
-      } finally {
+        if ($('#lastSaved')) {
+          const ts = cache.meta?.savedAt
+            ? new Date(cache.meta.savedAt).toLocaleString()
+            : '';
+          $('#lastSaved').textContent =
+            'Loaded from cache' + (ts ? ' · ' + ts : '');
+        }
+
         window.__dataReady = true;
-        $('#overlay').style.display = 'none';
-        $('main').setAttribute('aria-busy', 'false');
+        const overlay = document.getElementById('overlay');
+        if (overlay) overlay.style.display = 'none';
+
+        return true;
+      } catch (e) {
+        console.error('loadCacheIfMatch failed', e);
+        return false;
       }
-    })();
+    }
+
+    function clearCache() {
+      localStorage.removeItem(CACHE_KEY);
+      if ($('#cacheInfo')) $('#cacheInfo').textContent = 'Cache cleared';
+      if ($('#lastSaved')) $('#lastSaved').textContent = '';
+    }
+
+
+    /* BOOTSTRAP */
+    // (async function boot() {
+    //   try {
+    //     updateAssigneeDropdown();
+    //     initAICoach();
+    //     $('#zwTo').value = $('#zwTo').value || ymd(new Date());
+
+
+    //     // FIRST load PropertyLab (fixes initial login issue)
+    //     overlayStatus('Loading PropertyLab…');
+    //     await loadPropertyLab();
+
+    //     // THEN load Zoom
+    //     overlayStatus('Refreshing Zoom…');
+    //     await fetchAllWebinars();
+
+    //     saveCache();
+
+    //     updateMetrics();
+    //     renderUserList();
+    //     renderGlobalTodo(false);
+    //     renderGlobalTodo(true);
+
+    //     const first = $('#userList .user');
+    //     if (first) first.click();
+
+    //   } catch (e) {
+    //     toast('Init error: ' + e.message, true);
+    //   } finally {
+    //     window.__dataReady = true;
+    //     $('#overlay').style.display = 'none';
+    //     $('main').setAttribute('aria-busy', 'false');
+    //   }
+    // })();
 
 
 
