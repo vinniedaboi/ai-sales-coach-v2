@@ -1295,7 +1295,6 @@
             <div class="grid" id="propGrid"></div>
 
             <div id="propertiesItems" style="margin-top:12px"></div>
-            <div id="propBookingsApi" style="margin-top:16px"></div>
             <div id="allPropertiesMap" style="width:100%;height:380px;border-radius:12px;margin:15px 0;"></div>
 
           </div>
@@ -1353,6 +1352,7 @@
                 </select></div>
               <div style="display:flex;align-items:flex-end"><button id="bkAdd" class="primary" style="width:auto"><i
                     class="fa-solid fa-plus"></i> Add Booking</button></div>
+
             </div>
             <table class="tbl" id="bkTable" style="margin-top:10px">
               <thead>
@@ -1369,6 +1369,7 @@
             </table>
             <div style="margin-top:8px;font-weight:900">Converted Commission Total: <span id="bkTotal">RM 0</span></div>
             <div id="bookingItems" style="margin-top:12px"></div>
+            <div id="propBookingsApi"></div>
           </div>
 
           <div class="panel" id="p-timeline">
@@ -1834,11 +1835,11 @@
         window.userRole = user.role;
         applyAssigneeFilterVisibility();
         updateAssigneeDropdown();
-
         const cacheLoaded = loadCacheIfMatch();
 
         if (cacheLoaded) {
           showDashboard();
+          loadGlobalBookingCount();
           overlay.style.display = "none";
           return;
         }
@@ -1851,7 +1852,7 @@
 
             overlayStatus("Loading Zoom…");
             await loadZoomData();
-
+            loadGlobalBookingCount();
             saveCache();
           } catch (err) {
             console.error("Startup data load failed:", err);
@@ -2064,6 +2065,8 @@
     * 2. Save Item Logic (Database Simulation + Temporary Local Display)
     */
     // Function must be async to handle API calls
+
+
 
     async function loadPropertyBookingsForLead(email) {
       const cont = document.getElementById('propBookingsApi');
@@ -2322,6 +2325,7 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
 
       let scoreVisible = false;
       let history = [];
+      let lastBookingCountCall = 0;
       let mediaRecorder, audioChunks = [];
 
       customPromptInput.value = DEFAULT_PROMPT_TEMPLATE;
@@ -3348,6 +3352,11 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
 
       if (selected?.email) {
         loadPropertyBookingsForLead(selected.email);
+        const now = Date.now();
+        if (now - lastBookingCountCall > 5000) {
+          lastBookingCountCall = now;
+          loadGlobalBookingCount();
+        }
       }
 
       if (window.loadChatMessages && selected?.phone) {
@@ -3641,6 +3650,44 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
     //   renderInsightTable(); renderGlobalTodo(false); renderGlobalTodo(true); renderPanel(tab);
     //   toast('Insight & Action saved');
     // };
+
+    async function loadGlobalBookingCount() {
+      const base = $('#plBase')?.value.trim().replace(/\/$/, '');
+      const key = $('#plKey')?.value.trim();
+
+      if (!base || !key) return;
+
+      try {
+        const page1 = await fetch(`${base}/users/property-bookings?page=1`, {
+          headers: { "Api-Key": key }
+        }).then(r => r.json());
+
+        const perPage = page1?.data?.per_page || 20;
+        const lastPage = page1?.data?.last_page || 1;
+
+        if (lastPage === 1) {
+          updatePurchaserMetric(page1?.data?.data?.length || 0);
+          return;
+        }
+
+        const last = await fetch(`${base}/users/property-bookings?page=${lastPage}`, {
+          headers: { "Api-Key": key }
+        }).then(r => r.json());
+
+        const lastCount = last?.data?.data?.length || 0;
+        const total = (lastPage - 1) * perPage + lastCount;
+
+        updatePurchaserMetric(total);
+
+      } catch (e) {
+        console.error("Global booking count failed", e);
+      }
+    }
+
+    function updatePurchaserMetric(n) {
+      const el = $('#mPurchasers');
+      if (el) el.textContent = n;
+    }
 
     function renderInsightTable() {
       if (!selected) return;
@@ -5161,7 +5208,6 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
           node: el
         });
       }
-
 
 
 
