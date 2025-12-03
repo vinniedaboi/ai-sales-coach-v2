@@ -3347,7 +3347,9 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
         .then(r => r.json())
         .then(data => {
 
-          const isAdmin = window.role === "admin";
+          const logged = window.loggedInUser;
+          const isAdmin = (logged.role === "admin") || (window.role === "admin") || (window.userRole === "admin");
+
           const isWriter = data?.by?.email === window.loggedInUser.email;
 
           if (isAdmin || isWriter) {
