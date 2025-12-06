@@ -306,7 +306,7 @@ PROMPT;
 
         } catch (\Throwable $e) {
             Log::error('🚨 [STT EXCEPTION]', ['message' => $e->getMessage()]);
-            return response()->json(['error' => 'Speech-to-text failed'], 500);
+            return response()->json(['error' => $e->getMessage()], 500);
         }
     }
 

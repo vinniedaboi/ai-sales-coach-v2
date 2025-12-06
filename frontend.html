@@ -1842,6 +1842,10 @@
         applyAssigneeFilterVisibility();
         updateAssigneeDropdown();
 
+
+        if (typeof initAICoach === "function") {
+          initAICoach();
+        }
         // Ensure Zoom "To" date is set
         if ($('#zwTo')) {
           $('#zwTo').value = $('#zwTo').value || ymd(new Date());
@@ -3590,7 +3594,6 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
       }
 
 
-
       if (which === 'courses') {
         const grid = $('#courseGrid'); let html = '';
         selected.courses.forEach(c => {
@@ -4434,7 +4437,7 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
     }
 
     /* CACHE */
-        /* CACHE (v7) */
+    /* CACHE (v7) */
     const CACHE_KEY = 'plab-ai-cache-v7';
 
     function buildCacheKey() {
@@ -4489,12 +4492,12 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
 
         const d = cache.data || {};
 
-        allActivities       = d.allActivities       || [];
-        webinarByEmail      = d.webinarByEmail      || {};
+        allActivities = d.allActivities || [];
+        webinarByEmail = d.webinarByEmail || {};
         csvPurchasesByEmail = d.csvPurchasesByEmail || {};
-        bookingsByEmail     = d.bookingsByEmail     || {};
-        actionsByEmail      = d.actionsByEmail      || {};
-        opportunityByEmail  = d.opportunityByEmail  || {};
+        bookingsByEmail = d.bookingsByEmail || {};
+        actionsByEmail = d.actionsByEmail || {};
+        opportunityByEmail = d.opportunityByEmail || {};
 
         // Rebuild profiles and inject everything back into the runtime
         buildProfilesFromActivities(allActivities);
