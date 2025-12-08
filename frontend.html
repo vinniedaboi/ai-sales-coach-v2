@@ -929,8 +929,10 @@
     <div class="section">
       <h4>ChatDaddy API</h4>
       <label>Account IDs (comma-separated)</label>
-      <input id="cdAccountIds"
-        value="acc_8ccb6226-76c4-44a2-a4_2a18,acc_8ccb6226-76c4-44a2-a4_5037,acc_8ccb6226-76c4-44a2-a4_4302" />
+      <input id="cdAccountIds" type="hidden"
+        value="acc_8ccb6226-76c4-44a2-a4_2a18,acc_8ccb6226-76c4-44a2-a4_5037,acc_8ccb6226-76c4-44a2-a4_4302,acc_8ccb6226-76c4-44a2-a4_3257" />
+      <label>ChatDaddy Account</label>
+      <select id="cdAccountNamesSelect"></select>
       <label>API Key</label>
       <input id="cdApiKey" type="password" value="apit_uXzp0yEL5Ucau9GYTRkub_fiQhSH3qR7bDlTkZA6AUw" />
       <button id="btnChatDaddyReload">Test ChatDaddy</button>
@@ -1785,6 +1787,38 @@
         }
       });
     }
+
+    const cdAccounts = [
+      { name: "Samie", id: "acc_8ccb6226-76c4-44a2-a4_2a18" },
+      { name: "Zen", id: "acc_8ccb6226-76c4-44a2-a4_5037" },
+      { name: "Business API", id: "acc_8ccb6226-76c4-44a2-a4_4302" },
+      { name: "Brandon", id: "acc_8ccb6226-76c4-44a2-a4_3257" }
+    ];
+
+    function renderCDAccountNames() {
+      const select = document.getElementById("cdAccountNamesSelect");
+      const idField = document.getElementById("cdAccountIds");
+
+      select.innerHTML = "";
+
+      cdAccounts.forEach(acc => {
+        const opt = document.createElement("option");
+        opt.value = acc.id;       // used by API
+        opt.textContent = acc.name; // display label
+        select.appendChild(opt);
+      });
+
+      // Sync hidden ID field when selection changes
+      select.addEventListener("change", () => {
+        idField.value = select.value;
+      });
+
+      // Default = first account
+      idField.value = cdAccounts[0].id;
+      select.value = cdAccounts[0].id;
+    }
+
+    document.addEventListener("DOMContentLoaded", renderCDAccountNames);
 
     // ===== LOGIN HANDLER =====
     document.getElementById("btnLogin").addEventListener("click", async () => {
@@ -4720,17 +4754,29 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
 
       const select = document.getElementById('chatAccountSelect');
       select.innerHTML = '';
-      creds.accounts.forEach((acc, i) => {
+
+      const ids = creds.accounts; // the actual IDs stored internally
+
+      ids.forEach((accId, i) => {
         const opt = document.createElement('option');
-        opt.value = i;
-        opt.textContent = acc;
+
+        // lookup name by ID
+        const named = cdAccounts.find(x => x.id === accId);
+        const label = named ? named.name : accId; // fallback to ID if no name found
+
+        opt.value = accId;          // real ID (used for sending messages)
+        opt.textContent = label;    // readable name
         select.appendChild(opt);
       });
 
       select.addEventListener('change', () => {
-        const index = parseInt(select.value, 10);
-        window.selectedChatAccount = index;
-        loadWAMessages(); // reload messages for that account
+        const selectedId = select.value;
+
+        // set selectedChatAccount by index
+        const index = ids.indexOf(selectedId);
+        window.selectedChatAccount = index >= 0 ? index : 0;
+
+        loadWAMessages();
       });
     }
 
