@@ -1797,28 +1797,34 @@
 
     function renderCDAccountNames() {
       const select = document.getElementById("cdAccountNamesSelect");
-      const idField = document.getElementById("cdAccountIds");
+      if (!select) return;
 
       select.innerHTML = "";
 
       cdAccounts.forEach(acc => {
         const opt = document.createElement("option");
-        opt.value = acc.id;       // used by API
-        opt.textContent = acc.name; // display label
+        opt.value = acc.id;         // real ID
+        opt.textContent = acc.name; // label
         select.appendChild(opt);
       });
 
-      // Sync hidden ID field when selection changes
-      select.addEventListener("change", () => {
-        idField.value = select.value;
-      });
+      // Try to restore previously chosen account in settings
+      const saved = localStorage.getItem("chatdaddy_selected_id");
+      if (saved && cdAccounts.some(a => a.id === saved)) {
+        select.value = saved;
+      } else {
+        select.value = cdAccounts[0].id;
+      }
 
-      // Default = first account
-      idField.value = cdAccounts[0].id;
-      select.value = cdAccounts[0].id;
+      // When you change it in settings, just remember the choice
+      select.addEventListener("change", () => {
+        localStorage.setItem("chatdaddy_selected_id", select.value);
+        // (we do NOT touch cdAccountIds here)
+      });
     }
 
     document.addEventListener("DOMContentLoaded", renderCDAccountNames);
+
 
     // ===== LOGIN HANDLER =====
     document.getElementById("btnLogin").addEventListener("click", async () => {
