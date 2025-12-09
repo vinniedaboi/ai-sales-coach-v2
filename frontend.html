@@ -1163,7 +1163,6 @@
               <label class="chip"><input type="checkbox" id="fltConverted" /> Converted</label>
               <label class="chip"><input type="checkbox" id="fltCancelled" /> Cancelled</label>
               <label class="chip"><input type="checkbox" id="fltCourses" /> Courses</label>
-              <label class="chip"><input type="checkbox" id="fltPoll" /> Has Poll Response</label>
             </div>
             <div class="list" id="userList">
               <div class="muted">Loading…</div>
@@ -1723,6 +1722,22 @@
           </div>
         </div>
 
+        <div style="flex:1 1 340px; min-width:340px; margin-top:20px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <div style="font-weight:800">Poll Responses</div>
+            <label style="font-size:12px;color:#64748b">
+              <input type="checkbox" id="advPollAll" /> Select All
+            </label>
+          </div>
+
+          <input id="advPollSearch" placeholder="Search polls by webinar…"
+            style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;">
+
+          <div id="advPollList"
+            style="margin-top:8px;border:1px solid var(--border);border-radius:8px;padding:6px 8px;max-height:260px;overflow:auto;font-size:13px;">
+          </div>
+        </div>
+
       </div>
 
       <div style="margin-top:16px;display:flex;justify-content:space-between;align-items:center;gap:8px">
@@ -1749,7 +1764,11 @@
     let lastBookingCountCall = 0;
     function toast(msg, err = false) { const el = $('#toast'); el.textContent = msg; el.style.color = err ? '#b91c1c' : '#64748b'; setTimeout(() => { if (el.textContent === msg) el.textContent = ''; }, 3500); }
     function overlayStatus(t) { $('#overlayStatus').textContent = t; }
-
+    let advFilter = {
+      webinars: new Set(),
+      properties: new Set(),
+      polls: new Set(),
+    };
 
     function showLogin() {
       document.getElementById("loginScreen").style.display = "block";
@@ -1962,7 +1981,7 @@
 
     /* Search + Filters + Sort */
     $('#search').addEventListener('input', () => renderUserList());
-    ['#fltWebinar', '#fltProperty', '#fltPaid', '#fltBooked', '#fltConverted', '#fltCancelled', '#fltCourses', '#sortBy', '#fltPoll']
+    ['#fltWebinar', '#fltProperty', '#fltPaid', '#fltBooked', '#fltConverted', '#fltCancelled', '#fltCourses', '#sortBy']
       .forEach(id => $(id).addEventListener('change', () => renderUserList()));
 
     /* Advanced Filters modal */
@@ -2000,17 +2019,30 @@
 
     const advApply = document.getElementById('advApply');
     if (advApply) advApply.addEventListener('click', () => {
-      // read current selections into advFilter
       advFilter.webinars = new Set();
       advFilter.properties = new Set();
+      advFilter.polls = new Set();
+
       $$('#advWebList input[type="checkbox"][data-web]').forEach(ch => {
         if (ch.checked) advFilter.webinars.add(ch.getAttribute('data-web'));
       });
+
       $$('#advPropList input[type="checkbox"][data-prop]').forEach(ch => {
         if (ch.checked) advFilter.properties.add(ch.getAttribute('data-prop'));
       });
+
+      $$('#advPollList input[type="checkbox"][data-poll]').forEach(ch => {
+        if (ch.checked) advFilter.polls.add(ch.getAttribute('data-poll'));
+      });
+
       document.getElementById('advFilterModal').style.display = 'none';
       renderUserList();
+    });
+
+
+    advFilter.polls = new Set();
+    $$('#advPollList input[type="checkbox"][data-poll]').forEach(ch => {
+      if (ch.checked) advFilter.polls.add(ch.getAttribute('data-poll'));
     });
 
     if ($('#advWebSearch')) $('#advWebSearch').addEventListener('input', () => renderAdvancedFilterLists());
@@ -2704,10 +2736,6 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
 
     /* ======== DATA & LOGIC ======== */
     let profiles = {};
-    let advFilter = {
-      webinars: new Set(),
-      properties: new Set()
-    };
     let allWebinarOptions = [];
     let allPropertyOptions = [];
     let propertyStateByName = {};
@@ -3194,6 +3222,16 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
       allWebinarOptions = Array.from(webSet).sort((a, b) => a.localeCompare(b));
       allPropertyOptions = Array.from(propSet).sort((a, b) => a.localeCompare(b));
 
+      const pollSet = new Set();
+      Object.values(webinarByEmail || {}).forEach(w => {
+        (w.meetings || []).forEach(m => {
+          if (m.polls?.length || m.poll_answers?.length || m.pollDetails?.length) {
+            pollSet.add(m.topic || 'Webinar');
+          }
+        });
+      });
+      allPollOptions = Array.from(pollSet).sort((a, b) => a.localeCompare(b));
+
       renderAdvancedFilterLists();
     }
 
@@ -3257,13 +3295,36 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
 
       propList.innerHTML = propHtml || '<div class="muted">No properties.</div>';
 
+      const pollList = $('#advPollList');
+      const pollSearch = ($('#advPollSearch')?.value || '').toLowerCase();
+
+      const pollHtml = allPollOptions
+        .filter(t => !pollSearch || t.toLowerCase().includes(pollSearch))
+        .map(t => `
+    <label style="display:flex;align-items:center;gap:6px;padding:3px 0;">
+      <input type="checkbox" data-poll="${esc(t)}" ${advFilter.polls?.has(t) ? 'checked' : ''}/>
+      <span>${esc(t)}</span>
+    </label>
+  `).join('');
+
+      pollList.innerHTML = pollHtml || '<div class="muted">No poll data.</div>';
+
+      const pollAll = $('#advPollAll');
+      if (pollAll) pollAll.checked = allPollOptions.length > 0 && advFilter.polls?.size === allPollOptions.length;
+
       // Update "Select All" checkboxes
       const webAll = $('#advWebAll');
       const propAll = $('#advPropAll');
       if (webAll) webAll.checked = allWebinarOptions.length > 0 && advFilter.webinars.size === allWebinarOptions.length;
       if (propAll) propAll.checked = allPropertyOptions.length > 0 && advFilter.properties.size === allPropertyOptions.length;
+
     }
 
+    if ($('#advPollSearch')) $('#advPollSearch').addEventListener('input', () => renderAdvancedFilterLists());
+    if ($('#advPollAll')) $('#advPollAll').addEventListener('change', e => {
+      const checked = e.target.checked;
+      $$('#advPollList input[type="checkbox"][data-poll]').forEach(ch => ch.checked = checked);
+    });
 
     function updateMetrics() {
       $('#mWebinarUsers').textContent = Object.keys(webinarByEmail).length;
@@ -3308,7 +3369,6 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
       const q = $('#search').value.trim().toLowerCase();
       const fWeb = $('#fltWebinar').checked, fProp = $('#fltProperty').checked, fPaid = $('#fltPaid').checked, fCourses = $('#fltCourses').checked;
       const fBooked = $('#fltBooked').checked, fConverted = $('#fltConverted').checked, fCancelled = $('#fltCancelled').checked;
-      const fPoll = $('#fltPoll').checked;
 
       if (q && !((u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q))) return false;
       if (fWeb && !u.hasWebinar) return false;
@@ -3318,7 +3378,6 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
       if (fBooked && !userHasBooking(u, 'book')) return false;
       if (fConverted && !userHasBooking(u, 'convert')) return false;
       if (fCancelled && !userHasBooking(u, 'cancel')) return false;
-      if (fPoll && !userHasPollResponse(u)) return false;
 
 
 
@@ -3340,6 +3399,28 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
         props.forEach(p => { if (advFilter.properties.has(p)) matchProp = true; });
         if (!matchProp) return false;
       }
+
+      // Advanced Poll Filter
+      if (advFilter.polls && advFilter.polls.size > 0) {
+        let match = false;
+        const meetings = (u.webinar?.meetings || []);
+
+        for (const m of meetings) {
+          const topic = m.topic || '';
+          const hasPoll =
+            (m.polls?.length || 0) > 0 ||
+            (m.poll_answers?.length || 0) > 0 ||
+            (m.pollDetails?.length || 0) > 0;
+
+          if (hasPoll && advFilter.polls.has(topic)) {
+            match = true;
+            break;
+          }
+        }
+
+        if (!match) return false;
+      }
+
 
       return true;
     }
@@ -4971,6 +5052,12 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
         return `${m}m ${s}s`;
       }
     }
+
+    $('#advPollList').addEventListener('change', e => {
+      if (e.target.matches('input[data-poll]')) {
+      }
+    });
+
 
     document.getElementById('csvUploadForm').addEventListener('submit', async function (e) {
       e.preventDefault();
