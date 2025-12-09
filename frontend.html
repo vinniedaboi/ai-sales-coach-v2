@@ -1163,6 +1163,7 @@
               <label class="chip"><input type="checkbox" id="fltConverted" /> Converted</label>
               <label class="chip"><input type="checkbox" id="fltCancelled" /> Cancelled</label>
               <label class="chip"><input type="checkbox" id="fltCourses" /> Courses</label>
+              <label class="chip"><input type="checkbox" id="fltPoll" /> Has Poll Response</label>
             </div>
             <div class="list" id="userList">
               <div class="muted">Loading…</div>
@@ -1961,7 +1962,7 @@
 
     /* Search + Filters + Sort */
     $('#search').addEventListener('input', () => renderUserList());
-    ['#fltWebinar', '#fltProperty', '#fltPaid', '#fltBooked', '#fltConverted', '#fltCancelled', '#fltCourses', '#sortBy']
+    ['#fltWebinar', '#fltProperty', '#fltPaid', '#fltBooked', '#fltConverted', '#fltCancelled', '#fltCourses', '#sortBy', '#fltPoll']
       .forEach(id => $(id).addEventListener('change', () => renderUserList()));
 
     /* Advanced Filters modal */
@@ -3284,10 +3285,30 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
       return false;
     }
 
+    function userHasPollResponse(u) {
+      if (!u) return false;
+      if (Number(u.webinarPollAnswers) > 0) return true;
+
+      const wz = u.webinar || {};
+      if (Array.isArray(wz.meetings)) {
+        for (const m of wz.meetings) {
+          if ((m.polls && m.polls.length > 0) || (m.poll_answers && m.poll_answers.length > 0)) return true;
+        }
+      }
+
+      if (Array.isArray(u.webinars) && u.webinars.length) {
+        return !!(u.webinarPollAnswers && u.webinarPollAnswers > 0);
+      }
+
+      return false;
+    }
+
+
     function userPassesFilters(u) {
       const q = $('#search').value.trim().toLowerCase();
       const fWeb = $('#fltWebinar').checked, fProp = $('#fltProperty').checked, fPaid = $('#fltPaid').checked, fCourses = $('#fltCourses').checked;
       const fBooked = $('#fltBooked').checked, fConverted = $('#fltConverted').checked, fCancelled = $('#fltCancelled').checked;
+      const fPoll = $('#fltPoll').checked;
 
       if (q && !((u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q))) return false;
       if (fWeb && !u.hasWebinar) return false;
@@ -3297,6 +3318,9 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
       if (fBooked && !userHasBooking(u, 'book')) return false;
       if (fConverted && !userHasBooking(u, 'convert')) return false;
       if (fCancelled && !userHasBooking(u, 'cancel')) return false;
+      if (fPoll && !userHasPollResponse(u)) return false;
+
+
 
 
       if (advFilter.webinars && advFilter.webinars.size > 0) {
