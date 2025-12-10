@@ -3567,6 +3567,7 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
         return;
       }
       if (which === "callrec") {
+        loadCallRecordings();
         return;
       }
       if (which === 'webinar') {
@@ -4291,7 +4292,7 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
 
       tbody.innerHTML = `<tr><td colspan="5" class="muted">Loading…</td></tr>`;
 
-      if (!user.phone) {
+      if (!selected.phone) {
         $("#callRecStatus").textContent = "This lead has no phone number.";
         $("#callRecTable tbody").innerHTML = "";
         return;
@@ -4307,7 +4308,7 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
           return;
         }
 
-        const phone = normalizePhone(user.phone);
+        const phone = normalizePhone(selected.phone);
 
         const matches = calls.filter(c => {
           const n1 = normalizePhone(c.number);
@@ -4331,6 +4332,59 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
       }
     };
 
+    async function loadCallRecordings() {
+      const status = document.getElementById("callRecStatus");
+      const tableBody = document.querySelector("#callRecTable tbody");
+
+      status.textContent = "Loading calls…";
+      tableBody.innerHTML = "";
+
+      try {
+        const res = await fetch("/api/salestrail/calls");
+
+        if (!res.ok) {
+          status.textContent = "Failed to load Salestrail data.";
+          return;
+        }
+
+        const data = await res.json();
+
+        if (!Array.isArray(data)) {
+          status.textContent = "Invalid data returned.";
+          return;
+        }
+
+        if (data.length === 0) {
+          status.textContent = "No call recordings found.";
+          return;
+        }
+
+        status.textContent = `Loaded ${data.length} calls.`;
+
+        data.forEach(call => {
+          const tr = document.createElement("tr");
+
+          tr.innerHTML = `
+                <td>${call.timestamp || "-"}</td>
+                <td>${call.from || call.caller || "-"}</td>
+                <td>${call.direction || "-"}</td>
+                <td>${call.duration || 0} sec</td>
+                <td>
+                    ${call.recordingUrl ?
+              `<audio controls src="${call.recordingUrl}" style="width:180px"></audio>`
+              : `-`
+            }
+                </td>
+            `;
+
+          tableBody.appendChild(tr);
+        });
+
+      } catch (err) {
+        status.textContent = "Error loading Salestrail.";
+        console.error(err);
+      }
+    }
 
 
 
