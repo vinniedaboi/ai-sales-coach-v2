@@ -56,7 +56,7 @@ class TemporaryInsightController extends Controller
             'action' => 'nullable|string',
             'assignee' => 'nullable|string',
             'priority' => 'required|string',
-            'due' => 'nullable|date', // Use 'due' to match the frontend 'item' structure
+            'due' => 'nullable|date', 
             'revenue' => 'nullable|numeric',
             'status' => 'required|string',
             'tab_context' => 'required|string',
@@ -90,14 +90,14 @@ class TemporaryInsightController extends Controller
         return response()->json(['message' => 'Insight updated successfully', 'data' => $requestData], 200);
     }
 
-    // --- RETRIEVE LOGIC (GET /api/get-insights-temp) ---
+
     public function index()
     {
         // Simply return all insights from the file
         return response()->json($this->loadInsights());
     }
 
-    // --- HELPER FUNCTIONS ---
+
     private function loadInsights(): array
     {
         // Ensure the directory exists

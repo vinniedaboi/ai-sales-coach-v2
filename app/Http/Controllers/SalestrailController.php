@@ -13,17 +13,15 @@ class SalestrailController extends Controller
         // Default FROM date
         $defaultFrom = '2025-06-01T00:00:00.000Z';
 
-        // Normalize "from"
         try {
             $from = Carbon::parse(
                 $request->query('from', $defaultFrom)
-            )->toJSON(); // <-- FIXED
+            )->toJSON(); 
         } catch (\Exception $e) {
             $from = Carbon::parse($defaultFrom)->toJSON(); // fallback
         }
 
-        // "to" = NOW in correct Z format
-        $to = Carbon::now('UTC')->toJSON(); // <-- FIXED
+        $to = Carbon::now('UTC')->toJSON(); 
 
         $username = "c7a5829c-3b1f-4226-914c-eaea93bd6b1e";
         $password = "MowRouieNvmJPCkHi3ldZvlcNH2JF1k6Rr19iHm9SgEMRrE6QF9IJAzne5h5eYJp";
