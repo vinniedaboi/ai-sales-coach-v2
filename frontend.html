@@ -2304,7 +2304,7 @@
       // --- UPDATE Mode (PUT) ---
       if (isUpdate) {
         method = 'PUT';
-        url = `https://behav.ai/api/store-insight-temp/${itemId}`;
+        url = `https://test.behav.ai/api/store-insight-temp/${itemId}`;
         successMessage = 'Insight updated successfully!';
 
         dataToSave = {
@@ -2318,7 +2318,7 @@
       // --- CREATE Mode (POST) ---
       else {
         method = 'POST';
-        url = 'https://behav.ai/api/store-insight-temp';
+        url = 'https://test.behav.ai/api/store-insight-temp';
         successMessage = 'Insight saved successfully!';
 
         dataToSave = {
@@ -2389,7 +2389,7 @@
     $('#fSave').onclick = saveItem;
     /* ======== AI COACH INTEGRATION SCRIPT START ======== */
     function initAICoach() {
-      const API_BASE = "https://behav.ai/api";
+      const API_BASE = "https://test.behav.ai/api";
       const DEFAULT_PROMPT_TEMPLATE = `
 You are role-playing a **potential client** in a realistic B2B cold-call sales simulation.
 
@@ -3971,7 +3971,7 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
           }
 
           try {
-            const apiUrl = `https://behav.ai/api/store-insight-temp/${id}`;
+            const apiUrl = `https://test.behav.ai/api/store-insight-temp/${id}`;
 
             const response = await fetch(apiUrl, {
               method: 'DELETE',
@@ -4107,7 +4107,7 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
         ;
       if (!full) {
         try {
-          const response = await fetch('https://behav.ai/api/get-insights-temp');
+          const response = await fetch('https://test.behav.ai/api/get-insights-temp');
           if (!response.ok) {
             // Throw an error if the network response is bad (e.g., 404, 500)
             throw new Error('Failed to fetch insights from temporary storage.');
@@ -5138,7 +5138,7 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
       formData.append('csv_file', file);
 
       try {
-        const response = await fetch('https://behav.ai/api/csv/upload', {
+        const response = await fetch('https://test.behav.ai/api/csv/upload', {
           method: 'POST',
           body: formData,
         });
@@ -5167,7 +5167,7 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
       csvSelector.innerHTML = '<option value="">-- Loading Files --</option>'; // Show loading state
 
       try {
-        const response = await fetch('https://behav.ai/api/csv/list');
+        const response = await fetch('https://test.behav.ai/api/csv/list');
         if (!response.ok) {
           throw new Error('Failed to fetch file list');
         }
@@ -5203,7 +5203,7 @@ Start the conversation like a real person answering a call — e.g. “Hello?”
       processMessage.textContent = 'Fetching file content from server...';
 
       try {
-        const response = await fetch('https://behav.ai/api/csv/process', {
+        const response = await fetch('https://test.behav.ai/api/csv/process', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
